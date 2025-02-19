@@ -17,7 +17,7 @@ class CartPoleMass:
         g=9.81,
         m_cart=1.0,
         m_pole=1.0,
-        pole_friction=0.4,
+        pole_friction=1,
     ):
         """
         Initialize the cart-pole system with masses.
@@ -113,7 +113,7 @@ cp = CartPoleMass(
 
 # Define the force command as a function of time
 def controller(x, v, theta, theta_dot):
-    return 0.0
+    return 0
 
 
 # Data storage for simulation results
@@ -166,7 +166,7 @@ plt.show()
 fig, ax = plt.subplots()
 ax.set_xlim(-5, 5)
 ax.set_ylim(-2, 2)
-cart_width = 0.4
+cart_width = 0.2
 cart_height = 0.2
 pole_length = cp.L
 
@@ -195,7 +195,7 @@ def animate(i):
     cart_top_y = cart_height / 2
     pole_x = x + pole_length * np.sin(theta)
     pole_y = cart_top_y + pole_length * np.cos(theta)
-    line.set_data([x, pole_x], [cart_top_y, pole_y])
+    line.set_data([x, pole_x], [cart_top_y, -pole_y])
     return cart, line
 
 
