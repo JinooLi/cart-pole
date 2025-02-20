@@ -177,13 +177,14 @@ class CLF:
         self.cp = cp
         self.M = np.array(
             [
-                [1, 0, 0, 0],
+                [2, 0, 0, 0],
                 [0, 1, 0, 0],
                 [0, 0, 10, 0],
-                [0, 0, 0, 10],
+                [0, 0, 0, 1],
             ],
             dtype=np.float64,
         )
+        self.M = self.M.T + self.M
         self.adj_state = np.array(
             [
                 [0],
@@ -201,10 +202,10 @@ class CLF:
         Returns:
             float: V의 output
         """
-        state: np.array = state.to_np()
+        state: np.ndarray = state.to_np()
 
-        state = state - self.adj_state
-        return state.T @ self.M @ state
+        adj_state = state + self.adj_state
+        return adj_state.T @ self.M @ adj_state
 
     def dV_dx(self, state: CartPole.State) -> np.ndarray:
         """Lyapunov function의 시간미분을 정의하는 함수
@@ -214,16 +215,16 @@ class CLF:
         Returns:
             np.ndarray[[float, float, float, float]]: dV_dx의 output (row vector)
         """
-        state: np.array = state.to_np()
-        state = state - self.adj_state
-        return 2 * state.T @ self.M
+        state: np.ndarray = state.to_np()
+        adj_state = state + self.adj_state
+        return 2 * adj_state.T @ self.M
 
 
 class RCBF:
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.x_max = 5.0
-        self.x_min = -5.0
+        self.x_max = 5.0 # x 안전영역 최대값
+        self.x_min = -5.0 # x 안전영역 최소값
 
     def h_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수의 계수를 생성하는 함수"""
@@ -251,11 +252,11 @@ class RCBF:
 
     def b_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수의 계수를 생성하는 함수"""
-        return 1 / (self.h_x(state) + 10e-10)
+        return 1 / (self.h_x(state) )
 
     def db_dx(self, state: CartPole.State) -> np.ndarray:
         """b를 x로 미분한 함수 row vector로 반환"""
-        return -self.dh_dx(state) / (self.h_x(state) ** 2 + 10e-10)
+        return -self.dh_dx(state) / (self.h_x(state) ** 2)
 
 
 class CLBF:
@@ -272,22 +273,23 @@ class CLBF:
 
     def alpa2(self, input) -> float:
         """class k 함수 alpha2"""
-        coef = 0.1
+        coef = 1
         return coef * input
 
     def getH(self, state: CartPole.State) -> np.ndarray:
-        return np.array(
+        H = np.array(
             [
                 [abs(state.x) + abs(state.v) + abs(state.theta) + abs(state.theta_dot)],
             ],
             dtype=np.float64,
         )
+        return H
 
     def getQ(self, state: CartPole) -> np.ndarray:
         H = self.getH(state)
         Q = np.array(
             [
-                [10, 0],
+                [float(H), 0],
                 [0, self.p],
             ],
             dtype=np.float64,
@@ -403,10 +405,7 @@ class Controller:
             matrix(h),
         )
 
-        print(solution["x"])
         u = solution["x"][0]
-
-        print(u)
 
         return float(u)
 
@@ -414,7 +413,7 @@ class Controller:
 # Simulation parameters
 dt = 0.01  # Time step (seconds)
 ctrl_dt = dt  # Controller time step (seconds)
-T = 10.0  # Total simulation time (seconds)
+T = 20.0  # Total simulation time (seconds)
 num_steps = int(T / dt)  # Number of simulation steps
 
 # Initialize the system:
@@ -494,6 +493,7 @@ plt.show()
 fig, ax = plt.subplots()
 ax.set_xlim(-5, 5)
 ax.set_ylim(-2, 2)
+fig.set_size_inches(10, 4)
 cart_width = 0.2
 cart_height = 0.2
 pole_length = cp.L
@@ -531,4 +531,5 @@ ani = animation.FuncAnimation(
     fig, animate, frames=len(x_history), init_func=init, interval=dt * 1000, blit=True
 )
 
-plt.show()
+ani.save("cartpole.mp4", writer="ffmpeg", fps=1 / dt)
+# plt.show()
