@@ -21,7 +21,7 @@ class CartPole:
                 self.theta = args[2]
                 self.theta_dot = args[3]
             else:
-                raise ValueError("Invalid number of arguments")
+                raise ValueError("Invalid number of arguments for state")
 
         def to_np(self) -> np.ndarray:
             return np.array(
@@ -46,7 +46,7 @@ class CartPole:
         m_cart=1.0,
         m_pole=1.0,
         pole_friction=1,
-        f_max=10,
+        f_max=15,
     ):
         """
         Initialize the cart-pole system with masses.
@@ -59,6 +59,7 @@ class CartPole:
           m_cart          : Mass of the cart (kg)
           m_pole          : Mass of the pole (kg)
           pole_friction   : Damping coefficient for the pole's rotation
+          f_max           : Maximum force that can be applied to the cart
         """
         self.state = self.State(x, v, theta, theta_dot)
         self.dt = dt
@@ -70,7 +71,7 @@ class CartPole:
         self.f_max = f_max
 
     def f_x(self, state: State) -> np.ndarray:
-        """f of \dot{x} = f(x, v, theta, theta_dot)+g(x, v, theta, theta_dot)u
+        """f of \dot{x} = f(x)+g(x)u
 
         Returns:
             np.ndarray[[float], [float], [float], [float]]: f의 output (column vector)
@@ -105,7 +106,7 @@ class CartPole:
         return f
 
     def g_x(self, state: State) -> np.array:
-        """g of \dot{x} = f(x, v, theta, theta_dot)+g(x, v, theta, theta_dot)u
+        """g(x) of \dot{x} = f(x)+g(x)u
 
         Returns:
             np.array[[float], [float], [float], [float]]: g의 output (column vector)
@@ -121,7 +122,7 @@ class CartPole:
         )
         return g
 
-    def step(self, F: float) -> np.ndarray:
+    def step(self, F: float) -> State:
         """
         Update the system state for one time step using the applied force F on the cart.
 
@@ -174,6 +175,15 @@ class CartPole:
 
 class CLF:
     def __init__(self, cp: CartPole):
+        """control lyapunov function을 정의하는 클래스.
+
+        V(x) = x^TMx 형태로 정의함. 이때 M은 positive definite matrix
+
+        pole의 원점은 중력방향이므로 반대 방향으로 돌리기 위해 x=0, v=0, theta=pi, theta_dot=0으로 V(x)의 원점을 설정한다.
+
+        Args:
+            cp (CartPole): CartPole 객체를 받아 초기화
+        """
         self.cp = cp
         self.M = np.array(
             [
@@ -197,6 +207,8 @@ class CLF:
     def V(self, state: CartPole.State) -> float:
         """Lyapunov function을 정의하는 함수
 
+        x = x + adj_state로 변환하여 V(x) = x^TMx로 정의
+
         Args:
             state (State): 현재 상태
         Returns:
@@ -209,6 +221,8 @@ class CLF:
 
     def dV_dx(self, state: CartPole.State) -> np.ndarray:
         """Lyapunov function의 시간미분을 정의하는 함수
+
+        x = x + adj_state로 변환하여 dV/dx(x) = 2x^TM로 정의
 
         Args:
             state (State): 현재 상태
@@ -229,11 +243,16 @@ class RCBF:
         self.x_min = -2.0  # x 안전영역 최소값
 
     def h_x(self, state: CartPole.State) -> float:
-        """state가 안전한지의 여부를 정의하는 함수의 계수를 생성하는 함수"""
+        """state가 안전한지의 여부를 정의하는 함수 h.
+
+        h(x) = -(x-x_max)(x-x_min)로 정의함.
+        """
         return -(state.x - self.x_max) * (state.x - self.x_min)
 
     def dh_dx(self, state: CartPole.State) -> np.ndarray:
         """h를 x로 미분한 함수. row vector로 반환
+
+        dh/dx(x) = -2(x-x_max) - 2(x-x_min)로 정의함.
 
         Args:
             state (CartPole.State): 현재 상태
@@ -253,32 +272,62 @@ class RCBF:
         )
 
     def b_x(self, state: CartPole.State) -> float:
-        """state가 안전한지의 여부를 정의하는 함수의 계수를 생성하는 함수"""
+        """state가 안전한지의 여부를 정의하는 함수의 계수를 생성하는 함수\n
+        b(x) = 1/h(x)로 정의함.
+        Args:
+            state (CartPole.State): 현재 상태
+
+        Returns:
+            float: b의 output
+        """
         return 1 / (self.h_x(state))
 
     def db_dx(self, state: CartPole.State) -> np.ndarray:
-        """b를 x로 미분한 함수 row vector로 반환"""
+        """b를 x로 미분한 함수 row vector로 반환
+        db/dx(x) = -dh/dx(x)/h(x)^2로 정의함.
+
+
+        """
         return -self.dh_dx(state) / (self.h_x(state) ** 2)
 
 
 class CLBF:
     def __init__(self, cp: CartPole, clf: CLF, rcbf: RCBF):
+        """CLBF를 정의하는 클래스
+
+        Args:
+            cp (CartPole): cartpole 객체
+            clf (CLF): CLF 객체. control lyapunov function을 받아온다.
+            rcbf (RCBF): RCBF 객체. reciprocal control barrier function을 받아온다.
+        """
         self.cp = cp
         self.clf = clf
         self.rcbf = rcbf
         self.p = 10
 
     def alpa1(self, input) -> float:
-        """class k 함수 alpha1"""
-        coef = 0.1
+        """class k 함수 alpha1
+        alpa1(x) = coef*x로 정의함.
+        """
+        coef = 1
         return coef * input
 
     def alpa2(self, input) -> float:
-        """class k 함수 alpha2"""
+        """class k 함수 alpha2
+        alpa2(x) = coef*x로 정의함.
+        """
         coef = 1
         return coef * input
 
     def getH(self, state: CartPole.State) -> np.ndarray:
+        """QP문제를 풀기 위한 H를 반환하는 함수
+
+        Args:
+            state (CartPole.State): 현재 상태
+
+        Returns:
+            np.ndarray: [1x1] H
+        """
         H = np.array(
             [
                 [abs(state.x) + abs(state.v) + abs(state.theta) + abs(state.theta_dot)],
@@ -288,6 +337,18 @@ class CLBF:
         return H
 
     def getQ(self, state: CartPole) -> np.ndarray:
+        """QP문제를 풀기 위한 Q를 반환하는 함수.
+
+        행렬 Q는 다음과 같이 정의한다.
+        Q = [[H, 0],
+             [0, p]]
+
+        Args:
+            state (CartPole): 현재 상태
+
+        Returns:
+            np.ndarray: [2x2] Q
+        """
         H = self.getH(state)
         Q = np.array(
             [
@@ -301,6 +362,15 @@ class CLBF:
 
     def condition_G(self, state: CartPole.State) -> np.ndarray:
         """부등식 제약조건 G를 반환하는 함수
+
+        G는 다음과 같이 정의한다.
+        G = [[dV_dx @ g, -1],
+             [db_dx @ g, 0],
+             [1, 0],
+             [-1, 0]]
+
+        위의 두 행은 CLF와 RCBF의 조건을 만족시키기 위한 제약조건이다.
+        밑의 두 행은 힘의 최대값을 넘지 않도록 하는 제약조건이다.
 
         Args:
             state (CartPole.State): 현재 상태
@@ -325,6 +395,15 @@ class CLBF:
 
     def condition_h(self, state: CartPole.State) -> np.ndarray:
         """부등식 제약조건 h를 반환하는 함수
+
+        h는 다음과 같이 정의한다.
+        h = [[-dv_dx @ f - alpa1(v)],
+             [-db_dx @ f + alpa2(h)],
+             [f_max],
+             [f_max],]
+
+        위의 두 행은 CLF와 RCBF의 조건을 만족시키기 위한 제약조건이다.
+        밑의 두 행은 힘의 최대값을 넘지 않도록 하는 제약조건이다.
 
         Args:
             state (CartPole.State): 현재 상태
@@ -474,7 +553,7 @@ for i in range(num_steps):
     f_command_history.append(f)
     state: CartPole.State = cp.step(f)
     try:
-        f = controller.ctrl(state, t)
+        f = controller.clbf_ctrl(state, t)
     except:
         f_command_history.pop()
         break
