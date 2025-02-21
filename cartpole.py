@@ -177,9 +177,9 @@ class CLF:
         self.cp = cp
         self.M = np.array(
             [
-                [2, 0, 0, 0],
+                [1000, 0, 0, 0],
                 [0, 1, 0, 0],
-                [0, 0, 10, 0],
+                [0, 0, 1, 0],
                 [0, 0, 0, 1],
             ],
             dtype=np.float64,
@@ -221,10 +221,12 @@ class CLF:
 
 
 class RCBF:
+    """1/h(x) = b(x)로 정의되는 장벽함수를 정의하는 클래스"""
+
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.x_max = 5.0 # x 안전영역 최대값
-        self.x_min = -5.0 # x 안전영역 최소값
+        self.x_max = 2.0  # x 안전영역 최대값
+        self.x_min = -2.0  # x 안전영역 최소값
 
     def h_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수의 계수를 생성하는 함수"""
@@ -252,7 +254,7 @@ class RCBF:
 
     def b_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수의 계수를 생성하는 함수"""
-        return 1 / (self.h_x(state) )
+        return 1 / (self.h_x(state))
 
     def db_dx(self, state: CartPole.State) -> np.ndarray:
         """b를 x로 미분한 함수 row vector로 반환"""
@@ -373,6 +375,7 @@ class Controller:
 
         self.dt = dt
         self.ctrl_dt = ctrl_dt
+        self.sum = 0
 
     def ctrl(
         self,
@@ -381,15 +384,33 @@ class Controller:
     ) -> float:
         if t % self.ctrl_dt < 10e-6:
             return self.output
+        a = 200
+        b = 5
+        c = 1000
+        d = 10
+        e = 0
 
-        if state.v <= 5.0:
-            self.output = 100.0
-        else:
-            self.output = 0.0
+        out = -(
+            c * (state.theta - np.pi)
+            - a * state.x
+            - b * state.v
+            + d * state.theta_dot
+            - e * self.sum
+        )
 
-        return self.output
+        self.sum += state.x * self.dt
+        if self.sum > 200:
+            self.sum = 200
+        if self.sum < -200:
+            self.sum = -200
 
-    def clf_ctrl(self, state: CartPole.State, t: float) -> float:
+        if out > 15:
+            return 15
+        if out < -15:
+            return -15
+        return out
+
+    def clbf_ctrl(self, state: CartPole.State, t: float) -> float:
         if t % self.ctrl_dt < 10e-6:
             return self.output
 
@@ -412,7 +433,7 @@ class Controller:
 
 # Simulation parameters
 dt = 0.01  # Time step (seconds)
-ctrl_dt = dt  # Controller time step (seconds)
+ctrl_dt = dt * 10  # Controller time step (seconds)
 T = 20.0  # Total simulation time (seconds)
 num_steps = int(T / dt)  # Number of simulation steps
 
@@ -423,7 +444,7 @@ num_steps = int(T / dt)  # Number of simulation steps
 cp = CartPole(
     x=0.0,
     v=0.0,
-    theta=-np.pi - 0.2,
+    theta=np.pi + 0.2,
     theta_dot=0.0,
     dt=dt,
     L=1.0,
@@ -431,7 +452,7 @@ cp = CartPole(
     m_cart=1.0,
     m_pole=0.1,
     pole_friction=0.1,
-    f_max=10,
+    f_max=100,
 )
 
 rcbf = RCBF(cp)
@@ -453,7 +474,7 @@ for i in range(num_steps):
     f_command_history.append(f)
     state: CartPole.State = cp.step(f)
     try:
-        f = controller.clf_ctrl(state, t)
+        f = controller.ctrl(state, t)
     except:
         f_command_history.pop()
         break
@@ -520,10 +541,9 @@ def animate(i):
     # Update cart position (using center as reference)
     cart.set_xy((x - cart_width / 2, -cart_height / 2))
     # Compute the pole's end point from the top center of the cart
-    cart_top_y = cart_height / 2
     pole_x = x + pole_length * np.sin(theta)
-    pole_y = cart_top_y + pole_length * np.cos(theta)
-    line.set_data([x, pole_x], [cart_top_y, -pole_y])
+    pole_y = pole_length * np.cos(theta)
+    line.set_data([x, pole_x], [0, -pole_y])
     return cart, line
 
 
@@ -531,5 +551,5 @@ ani = animation.FuncAnimation(
     fig, animate, frames=len(x_history), init_func=init, interval=dt * 1000, blit=True
 )
 
-ani.save("cartpole.mp4", writer="ffmpeg", fps=1 / dt)
-# plt.show()
+# ani.save("cartpole.mp4", writer="ffmpeg", fps=1 / dt)
+plt.show()
