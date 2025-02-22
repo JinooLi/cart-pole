@@ -216,13 +216,12 @@ class CLF:
         self.M = P
 
     def adj_state(self, state: np.ndarray):
-        # pi2 = 2 * np.pi
-        # a: int = state[3][0] // pi2
-        # if a != 0:
-        #     state[3][0] = state[3][0] - a * pi2
+        pi2 = 2 * np.pi
+        a: int = state[2][0] // pi2
+        if a != 0:
+            state[2][0] = state[2][0] - a * pi2
 
-        state[3][0] -= np.pi
-        print(state)
+        state[2][0] -= np.pi
 
         return state
 
@@ -549,7 +548,7 @@ num_steps = int(T / dt)  # Number of simulation steps
 cp = CartPole(
     x=0.0,
     v=0.0,
-    theta=np.pi + 0.2,
+    theta=3 * np.pi + 0.2,
     theta_dot=0.0,
     dt=dt,
     L=1.0,
