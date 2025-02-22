@@ -73,6 +73,7 @@ v\\
 -\pi\\
 0
 \end{bmatrix},
+\quad M=M_t+M_t^\top,
 \quad
 M_t=
 \begin{bmatrix}
@@ -80,8 +81,7 @@ m_{11}&m_{12}&m_{13}&m_{14}\\
 0&m_{22}&m_{23}&m_{24}\\
 0&0&m_{33}&m_{34}\\
 0&0&0&m_{44}
-\end{bmatrix},
-\quad M=M_t+M_t^\top.
+\end{bmatrix}.
 $$
 
 
