@@ -187,10 +187,10 @@ class CLF:
         self.cp = cp
         self.M = np.array(
             [
-                [1000, 0, 0, 0],
-                [0, 1, 0, 0],
-                [0, 0, 1, 0],
-                [0, 0, 0, 1],
+                [10, 0, 1, 0],
+                [0, 0.1, 0, 0],
+                [0, 0, 1000, 0],
+                [0, 0, 0, 1.5],
             ],
             dtype=np.float64,
         )
@@ -239,15 +239,15 @@ class RCBF:
 
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.x_max = 2.0  # x 안전영역 최대값
-        self.x_min = -2.0  # x 안전영역 최소값
+        self.v_max = 10.0  # x 안전영역 최대값
+        self.v_min = -10.0  # x 안전영역 최소값
 
     def h_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수 h.
 
         h(x) = -(x-x_max)(x-x_min)로 정의함.
         """
-        return -(state.x - self.x_max) * (state.x - self.x_min)
+        return -(state.v - self.v_max) * (state.v - self.v_min)
 
     def dh_dx(self, state: CartPole.State) -> np.ndarray:
         """h를 x로 미분한 함수. row vector로 반환
@@ -262,7 +262,7 @@ class RCBF:
         return np.array(
             [
                 [
-                    -2 * (state.x - self.x_min) - 2 * (state.x - self.x_max),
+                    -2 * (state.x - self.v_min) - 2 * (state.x - self.v_max),
                     0,
                     0,
                     0,
@@ -303,7 +303,7 @@ class CLBF:
         self.cp = cp
         self.clf = clf
         self.rcbf = rcbf
-        self.p = 10
+        self.p = 20
 
     def alpa1(self, input) -> float:
         """class k 함수 alpha1
@@ -587,7 +587,7 @@ plt.legend()
 plt.title("Pole State")
 
 plt.tight_layout()
-plt.show()
+plt.savefig("cartpole.png")
 
 # --- Animation ---
 fig, ax = plt.subplots()
@@ -630,5 +630,4 @@ ani = animation.FuncAnimation(
     fig, animate, frames=len(x_history), init_func=init, interval=dt * 1000, blit=True
 )
 
-# ani.save("cartpole.mp4", writer="ffmpeg", fps=1 / dt)
-plt.show()
+ani.save("cartpole.mp4", writer="ffmpeg", fps=1 / dt)
