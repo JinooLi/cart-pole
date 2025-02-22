@@ -24,6 +24,9 @@ class CartPole:
             else:
                 raise ValueError("Invalid number of arguments for state")
 
+        def copy(self):
+            return CartPole.State(self.x, self.v, self.theta, self.theta_dot)
+
         def to_np(self) -> np.ndarray:
             return np.array(
                 [
@@ -215,15 +218,17 @@ class CLF:
 
         self.M = P
 
-    def adj_state(self, state: np.ndarray):
+    def adj_state(self, state: CartPole.State) -> CartPole.State:
+        adj_state: CartPole.State = state.copy()
         pi2 = 2 * np.pi
-        a: int = state[2][0] // pi2
+        a: int = adj_state.theta // pi2
+
         if a != 0:
-            state[2][0] = state[2][0] - a * pi2
+            adj_state.theta -= a * pi2
 
-        state[2][0] -= np.pi
+        adj_state.theta -= np.pi
 
-        return state
+        return adj_state
 
     def V(self, state: CartPole.State) -> float:
         """Lyapunov function을 정의하는 함수
@@ -235,9 +240,8 @@ class CLF:
         Returns:
             float: V의 output
         """
-        state: np.ndarray = state.to_np()
 
-        state = self.adj_state(state)
+        state: np.ndarray = self.adj_state(state).to_np()
         return state.T @ self.M @ state
 
     def dV_dx(self, state: CartPole.State) -> np.ndarray:
@@ -250,8 +254,8 @@ class CLF:
         Returns:
             np.ndarray[[float, float, float, float]]: dV_dx의 output (row vector)
         """
-        state: np.ndarray = state.to_np()
-        state = self.adj_state(state)
+
+        state: np.ndarray = self.adj_state(state).to_np()
         return 2 * state.T @ self.M
 
 
