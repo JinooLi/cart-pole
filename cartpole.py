@@ -210,17 +210,21 @@ class CLF:
 
         R = np.array([[0.1]], dtype=np.float64)
 
+        # Solve the continuous-time algebraic Riccati equation
         P = solve_continuous_are(A, B, Q, R)
 
         self.M = P
-        self.adj_state = np.array(
-            [
-                [0],
-                [0],
-                [-np.pi],
-                [0],
-            ]
-        )
+
+    def adj_state(self, state: np.ndarray):
+        # pi2 = 2 * np.pi
+        # a: int = state[3][0] // pi2
+        # if a != 0:
+        #     state[3][0] = state[3][0] - a * pi2
+
+        state[3][0] -= np.pi
+        print(state)
+
+        return state
 
     def V(self, state: CartPole.State) -> float:
         """Lyapunov function을 정의하는 함수
@@ -234,8 +238,8 @@ class CLF:
         """
         state: np.ndarray = state.to_np()
 
-        adj_state = state + self.adj_state
-        return adj_state.T @ self.M @ adj_state
+        state = self.adj_state(state)
+        return state.T @ self.M @ state
 
     def dV_dx(self, state: CartPole.State) -> np.ndarray:
         """Lyapunov function의 시간미분을 정의하는 함수
@@ -248,8 +252,8 @@ class CLF:
             np.ndarray[[float, float, float, float]]: dV_dx의 output (row vector)
         """
         state: np.ndarray = state.to_np()
-        adj_state = state + self.adj_state
-        return 2 * adj_state.T @ self.M
+        state = self.adj_state(state)
+        return 2 * state.T @ self.M
 
 
 class RCBF:
