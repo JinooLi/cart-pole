@@ -280,7 +280,7 @@ class RCBF:
         return np.array(
             [
                 [
-                    -2 * (state.x - self.v_min) - 2 * (state.x - self.v_max),
+                    -2 * (state.v - self.v_min) - 2 * (state.v - self.v_max),
                     0,
                     0,
                     0,
@@ -370,7 +370,7 @@ class CLBF:
         H = self.getH(state)
         Q = np.array(
             [
-                [float(H), 0],
+                [H[0][0], 0],
                 [0, self.p],
             ],
             dtype=np.float64,
@@ -549,7 +549,7 @@ cp = CartPole(
     m_cart=1.0,
     m_pole=0.1,
     pole_friction=0.1,
-    f_max=100,
+    f_max=10,
 )
 
 rcbf = RCBF(cp)
