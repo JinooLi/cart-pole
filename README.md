@@ -97,7 +97,9 @@ $$
 
 ## 3. Reciprocal Control Barrier Function(RCBF)
 
-**Control Barrier Function**은 **안전(safety)** 제약을 만족하도록 해 줍니다. 그중에서도 **Reciprocal CBF**는 상태가 경계에 가까워질 때 무한대로 큰 페널티를 주어, 안전 집합에서 벗어나지 않도록 합니다. 코드의 `RCBF` 클래스는 다음과 같이 정의합니다:
+**Control Barrier Function**은 **안전(safety)** 제약을 만족하도록 해 줍니다. 그중에서도 **Reciprocal CBF**는 상태가 경계에 가까워질 때 무한대로 큰 페널티를 주어, 안전 집합에서 벗어나지 않도록 합니다. 
+
+이 함수는 다양하게 정의할 수 있겠지만, 이 코드의 `RCBF` 클래스는 다음과 같이 정의합니다:
 
 $$
 h(\mathbf{x})=-(x-x_{\max})(x-x_{\min}),
