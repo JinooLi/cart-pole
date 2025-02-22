@@ -14,19 +14,19 @@
 코드의 `CartPole.step()` 메서드에 구현된 운동방정식은 아래와 같습니다:
 
 $$
-\dot{x}=v,
+\dot{x}=\dot{x}
 $$
 
 $$
-\ddot{x}=\frac{F+m_p\sin(\theta)\bigl(L\dot{\theta}^2+g\cos(\theta)\bigr)}{m_c+m_p\sin^2(\theta)},
+\ddot{x}=\frac{F+m_p\sin(\theta)\bigl(L\dot{\theta}^2+g\cos(\theta)\bigr)}{m_c+m_p\sin^2(\theta)}
 $$
 
 $$
-\dot{\theta}=\dot{\theta},
+\dot{\theta}=\dot{\theta}
 $$
 
 $$
-\ddot{\theta}=\frac{-F\cos(\theta)-m_pL\dot{\theta}^2\sin(\theta)\cos(\theta)-(m_c+m_p)g\sin(\theta)-b\dot{\theta}}{L\bigl(m_c+m_p\sin^2(\theta)\bigr)}.
+\ddot{\theta}=\frac{-F\cos(\theta)-m_pL\dot{\theta}^2\sin(\theta)\cos(\theta)-(m_c+m_p)g\sin(\theta)-b\dot{\theta}}{L\bigl(m_c+m_p\sin^2(\theta)\bigr)}
 $$
 
 여기서
@@ -39,23 +39,53 @@ $$
 코드에서 **CartPole** 클래스는 다음 두 함수를 사용해 이 시스템을 **제어-선형화(control-affine) 형태**로 표현합니다:
 
 $$
-\dot{\mathbf{x}}=\mathbf{f}(\mathbf{x})+\mathbf{g}(\mathbf{x})u.
+\dot{\mathbf{x}}=\mathbf{f}(\mathbf{x})+\mathbf{g}(\mathbf{x})u
 $$
 
 - `f_x(state)`: 드리프트 항 $\mathbf{f}(\mathbf{x})$  
 - `g_x(state)`: 입력 매트릭스 $\mathbf{g}(\mathbf{x})$
 
+$$
+\dot{\mathbf{x}} = \begin{bmatrix}
+\dot{x} \\[1mm]
+\ddot{x} \\[1mm]
+\dot{\theta} \\[1mm]
+\ddot{\theta}
+\end{bmatrix}
+=
+\underbrace{
+\begin{bmatrix}
+v \\
+\displaystyle \frac{m_{\text{pole}}\sin(\theta)\Big(L\,\omega^2 + g\,\cos(\theta)\Big)}{m_{\text{cart}} + m_{\text{pole}}\sin^2(\theta)} \\[2mm]
+\omega \\[2mm]
+\displaystyle \frac{- m_{\text{pole}}L\,\omega^2\sin(\theta)\cos(\theta) - (m_{\text{cart}}+m_{\text{pole}})\,g\,\sin(\theta) - \text{pole\_friction}\,\omega}{L\Big(m_{\text{cart}} + m_{\text{pole}}\sin^2(\theta)\Big)}
+\end{bmatrix}
+}_{f(\mathbf{x})}
++
+\underbrace{
+\begin{bmatrix}
+0 \\[2mm]
+\displaystyle \frac{1}{m_{\text{cart}} + m_{\text{pole}}\sin^2(\theta)} \\[3mm]
+0 \\[3mm]
+\displaystyle \frac{-\cos(\theta)}{L\Big(m_{\text{cart}} + m_{\text{pole}}\sin^2(\theta)\Big)}
+\end{bmatrix}
+}_{g(\mathbf{x})}
+\,u
+$$
+
 
 
 ## 2. 제어 리아푸노프 함수(CLF)
 
-**Control Lyapunov Function**은 시스템의 **안정성**을 보장하기 위해 사용됩니다. 코드의 `CLF` 클래스에서 사용되는 CLF는 다음과 같이 정의됩니다:
+**Control Lyapunov Function**은 시스템의 **안정성**을 보장하기 위해 사용됩니다. 
+
+코드의 `CLF` 클래스에서 사용되는 CLF는 다음과 같이 정의됩니다.
 
 $$
-V(\mathbf{x})=(\mathbf{x}+\mathbf{x}_{\text{adj}})^\top M(\mathbf{x}+\mathbf{x}_{\text{adj}}),
+V(\mathbf{x})=(\mathbf{x}+\mathbf{x}_{\text{adj}})^\top M(\mathbf{x}+\mathbf{x}_{\text{adj}})
 $$
 
-여기서
+여기서 각각의 기호의 정의는 다음과 같습니다.($M_t$는 상삼각행렬을 사용합니다. 대칭 행렬을 만들기 귀찮기 때문입니다.)
 
 $$
 \mathbf{x}=
@@ -81,14 +111,14 @@ m_{11}&m_{12}&m_{13}&m_{14}\\
 0&m_{22}&m_{23}&m_{24}\\
 0&0&m_{33}&m_{34}\\
 0&0&0&m_{44}
-\end{bmatrix}.
+\end{bmatrix}
 $$
 
 
-이때 $\mathbf{x}_{\text{adj}}$는 막대가 $\theta=\pi$일 때(즉, 직립) 상태가 $(0,0,\pi,0)$이 되도록 기준을 옮기는 역할을 합니다. $V(\mathbf{x})$의 기울기 $\nabla V(\mathbf{x})$는 다음과 같습니다:
+이때 $\mathbf{x}_{\text{adj}}$는 막대가 $\theta=\pi$일 때(즉, 직립) 상태가 $(0,0,\pi,0)$이 되도록 기준을 옮기는 역할을 합니다. $V(\mathbf{x})$의 기울기 $\nabla V(\mathbf{x})$는 다음과 같습니다.
 
 $$
-\nabla V(\mathbf{x})=2(\mathbf{x}+\mathbf{x}_{\text{adj}})^\top M.
+\nabla V(\mathbf{x})=2(\mathbf{x}+\mathbf{x}_{\text{adj}})^\top M
 $$
 
 이 $\nabla V(\mathbf{x})$는 이후 CLF 제약식에서 사용됩니다.
@@ -99,31 +129,31 @@ $$
 
 **Control Barrier Function**은 **안전(safety)** 제약을 만족하도록 해 줍니다. 그중에서도 **Reciprocal CBF**는 상태가 경계에 가까워질 때 무한대로 큰 페널티를 주어, 안전 집합에서 벗어나지 않도록 합니다. 
 
-이 함수는 다양하게 정의할 수 있겠지만, 이 코드의 `RCBF` 클래스는 다음과 같이 정의합니다:
+이 함수는 다양하게 정의할 수 있겠지만, 이 코드의 `RCBF` 클래스는 다음과 같이 정의합니다.
 
 $$
-h(\mathbf{x})=-(x-x_{\max})(x-x_{\min}),
+h(\mathbf{x})=-(x-x_{\max})(x-x_{\min})
 $$
 
 $$
-b(\mathbf{x})=\frac{1}{h(\mathbf{x})}.
+b(\mathbf{x})=\frac{1}{h(\mathbf{x})}
 $$
 
 여기서 $x_{\min},x_{\max}$는 카트가 움직일 수 있는 안전 범위입니다. 만약 $x$가 범위를 벗어나면 $h(\mathbf{x})$가 0 또는 음수가 되어 위험해집니다.
 
-$h(\mathbf{x})$에 대한 그래디언트 $\nabla h(\mathbf{x})$는:
+$h(\mathbf{x})$에 대한 그래디언트 $\nabla h(\mathbf{x})$는 다음과 같습니다.
 
 $$
 \nabla h(\mathbf{x})=
 \begin{bmatrix}
 -2(x-x_{\min})-2(x-x_{\max}) &0&0&0
-\end{bmatrix}.
+\end{bmatrix}
 $$
 
-$b(\mathbf{x})=\frac{1}{h(\mathbf{x})}$에 대한 그래디언트는
+$b(\mathbf{x})=\frac{1}{h(\mathbf{x})}$에 대한 그래디언트는 다음과 같습니다.
 
 $$
-\nabla b(\mathbf{x})=-\frac{\nabla h(\mathbf{x})}{h(\mathbf{x})^2}.
+\nabla b(\mathbf{x})=-\frac{\nabla h(\mathbf{x})}{h(\mathbf{x})^2}
 $$
 
 
@@ -134,7 +164,7 @@ $$
 ### 4.1 QP 비용함수
 
 $$\begin{align*}
-u^{*}_{1}(x):= &\text{argmin}_{u,\delta}\left(\frac{1}{2}u^{\intercal}H(x)u+p \delta^{2} \right)\\
+u^{*}_{1}(x):= &\argmin_{u,\delta}\left(\frac{1}{2}u^{\intercal}H(x)u+p \delta^{2} \right)\\
 &\text{subject to }L_{f}V(x)+L_{g}V(x)u \leq -\overline{\alpha}_{3}(V(x))+\delta\\
 & \qquad \qquad \ \ L_{f}b(x)+L_{g}b(x)u-\alpha_{3}(h(x))\leq 0
 \end{align*}$$
@@ -142,7 +172,7 @@ u^{*}_{1}(x):= &\text{argmin}_{u,\delta}\left(\frac{1}{2}u^{\intercal}H(x)u+p \d
 코드에서는 각 시뮬레이션 스텝마다 다음의 QP를 풉니다(`clbf_ctrl` 내부):
 
 $$
-\min_{u,\delta}
+\argmin_{u,\delta}
 \frac{1}{2}
 \begin{bmatrix}
 u\\
@@ -218,8 +248,8 @@ $$G \begin{bmatrix} u \\ \delta\end{bmatrix} \leq h$$
 
 `Controller` 클래스는 두 가지 제어 방법을 제공합니다:
 
-1. `ctrl(...)`: PD 혹은 PID에 가까운 단순 제어 (데모용)  
-2. `clbf_ctrl(...)`: 위에서 설명한 **CLF-CBF-QP** 최적화 문제를 풀어 제어입력을 계산
+1. `ctrl(state,t)`: PD 혹은 PID에 가까운 단순 제어 (데모용)  
+2. `clbf_ctrl(state,t)`: 위에서 설명한 **CLBF-QP** 최적화 문제를 풀어 제어입력을 계산
 
 시뮬레이션 루프에서는 보통
 
