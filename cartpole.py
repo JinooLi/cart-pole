@@ -3,6 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from scipy.linalg import solve_continuous_are
 from cvxopt import solvers, matrix
 
 
@@ -185,16 +186,33 @@ class CLF:
             cp (CartPole): CartPole 객체를 받아 초기화
         """
         self.cp = cp
-        self.M = np.array(
+        A = np.array(
             [
-                [10, 0, 1, 0],
-                [0, 0.1, 0, 0],
-                [0, 0, 1000, 0],
-                [0, 0, 0, 1.5],
+                [0, 1, 0, 0],
+                [0, 0, cp.m_pole * cp.g / cp.m_cart, 0],
+                [0, 0, 0, 1],
+                [0, 0, (cp.m_cart + cp.m_pole) * cp.g / (cp.m_cart * cp.L), 0],
             ],
             dtype=np.float64,
         )
-        self.M = self.M.T + self.M
+
+        B = np.array(
+            [
+                [0],
+                [1 / cp.m_cart],
+                [0],
+                [1 / (cp.m_cart * cp.L)],
+            ],
+            dtype=np.float64,
+        )
+
+        Q = np.diag([1, 1, 10, 1])
+
+        R = np.array([[0.1]], dtype=np.float64)
+
+        P = solve_continuous_are(A, B, Q, R)
+
+        self.M = P
         self.adj_state = np.array(
             [
                 [0],
