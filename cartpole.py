@@ -321,7 +321,7 @@ class CLBF:
         self.cp = cp
         self.clf = clf
         self.rcbf = rcbf
-        self.p = 20
+        self.p = 50
 
     def alpa1(self, input) -> float:
         """class k 함수 alpha1
@@ -348,7 +348,7 @@ class CLBF:
         """
         H = np.array(
             [
-                [abs(state.x) + abs(state.v) + abs(state.theta) + abs(state.theta_dot)],
+                [1],
             ],
             dtype=np.float64,
         )
@@ -505,7 +505,9 @@ class Controller:
             return 15
         if out < -15:
             return -15
-        return out
+
+        self.output = out
+        return self.output
 
     def clbf_ctrl(self, state: CartPole.State, t: float) -> float:
         if t % self.ctrl_dt < 10e-6:
@@ -525,7 +527,9 @@ class Controller:
 
         u = solution["x"][0]
 
-        return float(u)
+        self.output = float(u)
+
+        return self.output
 
 
 # Simulation parameters
