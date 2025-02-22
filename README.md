@@ -133,6 +133,12 @@ $$
 
 ### 4.1 QP 비용함수
 
+$$\begin{align*}
+u^{*}_{1}(x):= &\text{argmin}_{u,\delta}\left(\frac{1}{2}u^{\intercal}H(x)u+p \delta^{2} \right)\\
+&\text{subject to }L_{f}V(x)+L_{g}V(x)u \leq -\overline{\alpha}_{3}(V(x))+\delta\\
+& \qquad \qquad \ \ L_{f}b(x)+L_{g}b(x)u-\alpha_{3}(h(x))\leq 0
+\end{align*}$$
+
 코드에서는 각 시뮬레이션 스텝마다 다음의 QP를 풉니다(`clbf_ctrl` 내부):
 
 $$
@@ -165,13 +171,20 @@ $$
 CLF와 RCBF 제약조건은 아래와 같이 표현될 수 있습니다:
 
 1. **CLF 제약**  
-   $$\nabla V(\mathbf{x})\mathbf{f}(\mathbf{x})+\nabla V(\mathbf{x})\mathbf{g}(\mathbf{x})u\le -\alpha_1\bigl(V(\mathbf{x})\bigr).$$  
+   $$\nabla V(\mathbf{x})\mathbf{f}(\mathbf{x})+\nabla V(\mathbf{x})\mathbf{g}(\mathbf{x})u\le -\alpha_1\bigl(V(\mathbf{x})\bigr)+\delta$$  
    여기서 $\alpha_1(\cdot)$는 $V(\mathbf{x})$의 감쇠율을 설정하는 **class-$\mathcal{K}$ 함수**입니다.
 
+   코드에 적용하기 위해 다음과 같이 정리합니다.
+
+   $$\nabla V(\mathbf{x})\mathbf{g}(\mathbf{x})u-\delta \le -\nabla V(\mathbf{x})\mathbf{f}(\mathbf{x})-\alpha_1\bigl(V(\mathbf{x})\bigr)$$
+
 2. **RCBF 제약**  
-   $$\nabla b(\mathbf{x})\mathbf{f}(\mathbf{x})+\nabla b(\mathbf{x})\mathbf{g}(\mathbf{x})u\ge -\nabla b(\mathbf{x})\mathbf{f}(\mathbf{x})+\alpha_2\bigl(h(\mathbf{x})\bigr).$$  
+   $$\nabla b(\mathbf{x})\mathbf{f}(\mathbf{x})+\nabla b(\mathbf{x})\mathbf{g}(\mathbf{x})u\le \alpha_2\bigl(h(\mathbf{x})\bigr)$$  
    여기서 $\alpha_2(\cdot)$는 $h(\mathbf{x})$가 양수를 유지하도록 하는 **class-$\mathcal{K}$ 함수**입니다.
 
+   코드에 적용하기 위해 다음과 같이 정리합니다.
+
+   $$\nabla b(\mathbf{x})\mathbf{g}(\mathbf{x})u\le -\nabla b(\mathbf{x})\mathbf{f}(\mathbf{x})+\alpha_2\bigl(h(\mathbf{x})\bigr)$$  
 3. **입력($F$) 제한**  
    $$|F|\le F_{\max}.$$
 
@@ -195,6 +208,8 @@ F_{\max}
 \end{bmatrix}.
 $$
 
+$$G \begin{bmatrix} u \\ \delta\end{bmatrix} \leq h$$
+
 그 후 `cvxopt.solvers.qp`를 호출해 입력 $u^*$와 슬랙 변수 $\delta^*$를 구합니다.
 
 
@@ -209,13 +224,13 @@ $$
 시뮬레이션 루프에서는 보통
 
 ```python
-f=controller.clbf_ctrl(state,t)
+f = controller.clbf_ctrl(state,t)
 ```
 
 로 $F$를 얻고,
 
 ```python
-cp.step(f)
+state = cp.step(f)
 ```
 
 를 통해 카트-폴 상태를 갱신합니다.
@@ -240,7 +255,7 @@ cp.step(f)
 
 ## 7. 플롯과 애니메이션
 
-코드는 다음의 결과 그래프를 출력합니다:
+코드는 다음의 결과 그래프(`cartpole.png`)를 생성, 저장합니다.
 
 1. **카트 위치($x$), 속도($v$), 입력 힘($F$)**  
 2. **폴 각도($\theta$), 각속도($\dot{\theta}$)**
@@ -264,11 +279,11 @@ cp.step(f)
 
 2. **스크립트 실행**  
    ```bash
-   python3 cartpole_clf_cbf.py
+   ./cartpole.py
    ```
-   실행하면
-   - 시뮬레이션 수행  
-   - 결과 그래프 출력  
+   실행하면 다음이 수행됩니다:
+   - 시뮬레이션  
+   - 결과 그래프 `cartpole.png`로 저장  
    - 애니메이션 `cartpole.mp4`로 저장
 
 3. **파라미터 조정**  
