@@ -45,8 +45,7 @@ $$
 - `f_x(state)`: 드리프트 항 $\mathbf{f}(\mathbf{x})$  
 - `g_x(state)`: 입력 매트릭스 $\mathbf{g}(\mathbf{x})$
 
-$$
-\dot{\mathbf{x}} = \begin{bmatrix}
+$$\dot{\mathbf{x}} = \begin{bmatrix}
 \dot{x} \\[1mm]
 \ddot{x} \\[1mm]
 \dot{\theta} \\[1mm]
@@ -69,8 +68,7 @@ v \\
 \displaystyle \frac{-\cos(\theta)}{L\Big(m_{\text{cart}} + m_{\text{pole}}\sin^2(\theta)\Big)}
 \end{bmatrix}
 }_{g(\mathbf{x})}
-\,u
-$$
+\,u$$
 
 
 
