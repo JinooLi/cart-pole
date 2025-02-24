@@ -55,15 +55,18 @@ class CartPole:
         """
         Initialize the cart-pole system with masses.
 
-          x, v            : Cart position and velocity
-          theta, theta_dot: Pole angle (0 is upright) and angular velocity (rad, rad/s)
-          dt              : Simulation time step (seconds)
-          L               : Pole length
-          g               : Gravitational acceleration (m/s²)
-          m_cart          : Mass of the cart (kg)
-          m_pole          : Mass of the pole (kg)
-          pole_friction   : Damping coefficient for the pole's rotation
-          f_max           : Maximum force that can be applied to the cart
+        Args:
+            x,              : Cart position
+            v               : Cart velocity
+            theta           : Pole angle (0 is downward) (rad)
+            theta_dot       : Pole angular velocity (rad/s)
+            dt              : Simulation time step (seconds)
+            L               : Pole length
+            g               : Gravitational acceleration (m/s²)
+            m_cart          : Mass of the cart (kg)
+            m_pole          : Mass of the pole (kg)
+            pole_friction   : Damping coefficient for the pole's rotation
+            f_max           : Maximum force that can be applied to the cart
         """
         self.state = self.State(x, v, theta, theta_dot)
         self.dt = dt
@@ -523,10 +526,7 @@ ctrl_dt = dt * 10  # Controller time step (seconds)
 T = 20.0  # Total simulation time (seconds)
 num_steps = int(T / dt)  # Number of simulation steps
 
-# Initialize the system:
-# - Cart starts at x=0 with zero velocity.
-# - Pole is slightly displaced from upright.
-# - Adjust masses and friction as needed.
+# Initialize the system
 cp = CartPole(
     x=0.0,
     v=0.0,
