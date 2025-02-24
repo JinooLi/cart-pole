@@ -270,15 +270,15 @@ class RCBF:
 
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.x_max = 2.5  # x 안전영역 최대값
-        self.x_min = -2.5  # x 안전영역 최소값
+        self.v_max = 2.5  # x 안전영역 최대값
+        self.v_min = -2.5  # x 안전영역 최소값
 
     def h_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수 h.
 
         h(x) = -(x-x_max)(x-x_min)로 정의함.
         """
-        return -(state.x - self.x_max) * (state.x - self.x_min)
+        return -(state.v - self.v_max) * (state.v - self.v_min)
 
     def dh_dx(self, state: CartPole.State) -> np.ndarray:
         """h를 x로 미분한 함수. row vector로 반환
@@ -293,8 +293,8 @@ class RCBF:
         return np.array(
             [
                 [
-                    -2 * (state.x - self.x_min) - 2 * (state.v - self.x_max),
                     0,
+                    -2 * (state.v - self.v_min) - 2 * (state.v - self.v_max),
                     0,
                     0,
                 ]
@@ -543,7 +543,7 @@ cp = CartPole(
     m_cart=1.0,
     m_pole=0.1,
     pole_friction=0.1,
-    f_max=15,
+    f_max=30,
 )
 
 rcbf = RCBF(cp)
