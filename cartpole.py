@@ -486,19 +486,24 @@ class Controller:
         self.ctrl_dt = ctrl_dt
         self.sum = 0
 
+    def check_ctrl_dt(self, t: float) -> bool:
+        if t % self.ctrl_dt < 10e-6:
+            return True
+        return False
+
     def ctrl(
         self,
         state: CartPole.State,
         t: float,
     ) -> float:
-        if t % self.ctrl_dt < 10e-6:
+        if not self.check_ctrl_dt(t):
             return self.output
 
         self.output = -float(self.clbf.clf.K @ self.clbf.clf.adj_state(state).to_np())
         return self.output
 
     def clbf_ctrl(self, state: CartPole.State, t: float) -> float:
-        if t % self.ctrl_dt < 10e-6:
+        if not self.check_ctrl_dt(t):
             return self.output
 
         Q = self.clbf.getQ(state)
@@ -563,6 +568,8 @@ for i in range(num_steps):
         f = controller.clbf_ctrl(state, t)
     except:
         f_command_history.pop()
+        print("QP problem is not feasible")
+        print("Simulation terminated")
         break
     time_history.append(t)
     x_history.append(state.x)
