@@ -487,7 +487,7 @@ class Controller:
         self.sum = 0
 
     def check_ctrl_dt(self, t: float) -> bool:
-        if t % self.ctrl_dt < 10e-6:
+        if t % self.ctrl_dt < self.cp.dt:
             return True
         return False
 
