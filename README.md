@@ -51,8 +51,7 @@ $$
 \ddot{x} \\[1mm]
 \dot{\theta} \\[1mm]
 \ddot{\theta}
-\end{bmatrix}
-=
+\end{bmatrix}=
 \underbrace{
 \begin{bmatrix}
 v \\
@@ -81,48 +80,15 @@ $$
 
 코드의 `CLF` 클래스에서 사용되는 CLF는 다음과 같이 정의됩니다.
 
-$$
-V(\mathbf{x})=(\mathbf{x}+\mathbf{x}_{\text{adj}})^\top M(\mathbf{x}+\mathbf{x}_{\text{adj}})
-$$
+pole이 서있는 상황에서의 시스템을 선형근사한 선형시스템($A,B$)에 대해 LQR을 풀어서 Lyapunov function을 만들어냅니다.
 
-여기서 각각의 기호의 정의는 다음과 같습니다.($M_t$는 상삼각행렬을 사용합니다. 대칭 행렬을 만들기 귀찮기 때문입니다.)
+$$J=\int^\infty_0(\mathbf{x}^\top Q\mathbf{x}+u^\top Ru)dt$$
 
-$$
-\mathbf{x}=
-\begin{bmatrix}
-x\\
-v\\
-\theta\\
-\dot{\theta}
-\end{bmatrix},
-\quad
-\mathbf{x}_{\text{adj}}=
-\begin{bmatrix}
-0\\
-0\\
--\pi\\
-0
-\end{bmatrix},
-\quad M=M_t+M_t^\top,
-\quad
-M_t=
-\begin{bmatrix}
-m_{11}&m_{12}&m_{13}&m_{14}\\
-0&m_{22}&m_{23}&m_{24}\\
-0&0&m_{33}&m_{34}\\
-0&0&0&m_{44}
-\end{bmatrix}
-$$
+이 LQR을 풀때 사용하는 continuous time Algebraic Riccati equation의 해 $P$를 통해 Lyapunov function을 만듭니다.
 
+$$A^\top P+PA-PBR^{-1}B^\top P+Q=0$$
 
-이때 $\mathbf{x}_{\text{adj}}$는 막대가 $\theta=\pi$일 때(즉, 직립) 상태가 $(0,0,\pi,0)$이 되도록 기준을 옮기는 역할을 합니다. $V(\mathbf{x})$의 기울기 $\nabla V(\mathbf{x})$는 다음과 같습니다.
-
-$$
-\nabla V(\mathbf{x})=2(\mathbf{x}+\mathbf{x}_{\text{adj}})^\top M
-$$
-
-이 $\nabla V(\mathbf{x})$는 이후 CLF 제약식에서 사용됩니다.
-
+$$V(\mathbf{x})=\mathbf{x}^\top P\mathbf{x}$$
 
 
 ## 3. Reciprocal Control Barrier Function(RCBF)
