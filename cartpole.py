@@ -216,6 +216,9 @@ class CLF:
         # Solve the continuous-time algebraic Riccati equation
         P = solve_continuous_are(A, B, Q, R)
 
+        self.K = np.linalg.inv(R) @ (B.T @ P)
+        print(self.K)
+
         self.M = P
 
     def adj_state(self, state: CartPole.State) -> CartPole.State:
@@ -264,15 +267,15 @@ class RCBF:
 
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.v_max = 10.0  # x 안전영역 최대값
-        self.v_min = -10.0  # x 안전영역 최소값
+        self.x_max = 2.5  # x 안전영역 최대값
+        self.x_min = -2.5  # x 안전영역 최소값
 
     def h_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수 h.
 
         h(x) = -(x-x_max)(x-x_min)로 정의함.
         """
-        return -(state.v - self.v_max) * (state.v - self.v_min)
+        return -(state.x - self.x_max) * (state.x - self.x_min)
 
     def dh_dx(self, state: CartPole.State) -> np.ndarray:
         """h를 x로 미분한 함수. row vector로 반환
@@ -287,7 +290,7 @@ class RCBF:
         return np.array(
             [
                 [
-                    -2 * (state.v - self.v_min) - 2 * (state.v - self.v_max),
+                    -2 * (state.x - self.x_min) - 2 * (state.v - self.x_max),
                     0,
                     0,
                     0,
@@ -328,7 +331,7 @@ class CLBF:
         self.cp = cp
         self.clf = clf
         self.rcbf = rcbf
-        self.p = 50
+        self.p = 10000000000
 
     def alpa1(self, input) -> float:
         """class k 함수 alpha1
@@ -488,32 +491,8 @@ class Controller:
     ) -> float:
         if t % self.ctrl_dt < 10e-6:
             return self.output
-        a = 200
-        b = 5
-        c = 1000
-        d = 10
-        e = 0
 
-        out = -(
-            c * (state.theta - np.pi)
-            - a * state.x
-            - b * state.v
-            + d * state.theta_dot
-            - e * self.sum
-        )
-
-        self.sum += state.x * self.dt
-        if self.sum > 200:
-            self.sum = 200
-        if self.sum < -200:
-            self.sum = -200
-
-        if out > 15:
-            return 15
-        if out < -15:
-            return -15
-
-        self.output = out
+        self.output = -float(self.clbf.clf.K @ self.clbf.clf.adj_state(state).to_np())
         return self.output
 
     def clbf_ctrl(self, state: CartPole.State, t: float) -> float:
@@ -560,7 +539,7 @@ cp = CartPole(
     m_cart=1.0,
     m_pole=0.1,
     pole_friction=0.1,
-    f_max=10,
+    f_max=15,
 )
 
 rcbf = RCBF(cp)
