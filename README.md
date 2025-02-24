@@ -1,4 +1,4 @@
-# Cart-Pole 시스템 제어: CLF-CBF-QP
+# Cart-Pole 시스템 제어: CLBF, QP
 
 ## 1. 시스템 설명: Cart-Pole
 
