@@ -127,11 +127,11 @@ $$
 
 ### 4.1 QP 비용함수
 
-$$\begin{align*}
+$$\begin{align}
 u^{*}_{1}(x):= &\argmin_{u,\delta}\left(\frac{1}{2}u^{\intercal}H(x)u+p \delta^{2} \right)\\
 &\text{subject to }L_{f}V(x)+L_{g}V(x)u \leq -\overline{\alpha}_{3}(V(x))+\delta\\
 & \qquad \qquad \ \ L_{f}b(x)+L_{g}b(x)u-\alpha_{3}(h(x))\leq 0
-\end{align*}$$
+\end{align}$$
 
 코드에서는 각 시뮬레이션 스텝마다 다음의 QP를 풉니다(`clbf_ctrl` 내부):
 
