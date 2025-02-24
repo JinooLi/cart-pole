@@ -96,7 +96,7 @@ $$V(\mathbf{x})=\mathbf{x}^\top P\mathbf{x}$$
 이 함수는 다양하게 정의할 수 있겠지만, 이 코드의 `RCBF` 클래스는 다음과 같이 정의합니다.
 
 $$
-h(\mathbf{x})=-(x-x_{\max})(x-x_{\min})
+h(\mathbf{x})=-(v-v_{\max})(v-v_{\min})
 $$
 
 $$
@@ -110,7 +110,7 @@ $h(\mathbf{x})$에 대한 그래디언트 $\nabla h(\mathbf{x})$는 다음과 �
 $$
 \nabla h(\mathbf{x})=
 \begin{bmatrix}
--2(x-x_{\min})-2(x-x_{\max}) &0&0&0
+-2(v-v_{\min})-2(v-v_{\max}) &0&0&0
 \end{bmatrix}
 $$
 
@@ -127,16 +127,17 @@ $$
 
 ### 4.1 QP 비용함수
 
-$$\begin{align}
-u^{*}_{1}(x):= &\argmin_{u,\delta}\left(\frac{1}{2}u^{\intercal}H(x)u+p \delta^{2} \right)\\
+$$\begin{aligned}
+u^{*}_{1}(x):= &\text{argmin}_{u,\delta}\left(\frac{1}{2}u^{\intercal}H(x)u+p \delta^{2} \right)\\
 &\text{subject to }L_{f}V(x)+L_{g}V(x)u \leq -\overline{\alpha}_{3}(V(x))+\delta\\
-& \qquad \qquad \ \ L_{f}b(x)+L_{g}b(x)u-\alpha_{3}(h(x))\leq 0
-\end{align}$$
+&\qquad \qquad \ \ L_{f}b(x)+L_{g}b(x)u-\alpha_{3}(h(x))\leq 0
+\end{aligned}
+$$
 
 코드에서는 각 시뮬레이션 스텝마다 다음의 QP를 풉니다(`clbf_ctrl` 내부):
 
 $$
-\argmin_{u,\delta}
+\text{argmin}_{u,\delta}
 \frac{1}{2}
 \begin{bmatrix}
 u\\
