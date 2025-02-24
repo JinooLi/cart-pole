@@ -50,7 +50,7 @@ class CartPole:
         m_cart=1.0,
         m_pole=1.0,
         pole_friction=1,
-        f_max=15,
+        f_max=10,
     ):
         """
         Initialize the cart-pole system with masses.
@@ -331,7 +331,7 @@ class CLBF:
         self.cp = cp
         self.clf = clf
         self.rcbf = rcbf
-        self.p = 10000000000
+        self.p = 100
 
     def alpa1(self, input) -> float:
         """class k 함수 alpha1
@@ -454,7 +454,6 @@ class CLBF:
         )
 
 
-# Define the force command as a function of time
 class Controller:
     def __init__(
         self,
@@ -596,6 +595,7 @@ plt.title("Pole State")
 
 plt.tight_layout()
 plt.savefig("cartpole.png")
+print("Simulation done. Results saved in 'cartpole.png'")
 
 # --- Animation ---
 fig, ax = plt.subplots()
@@ -638,4 +638,6 @@ ani = animation.FuncAnimation(
     fig, animate, frames=len(x_history), init_func=init, interval=dt * 1000, blit=True
 )
 
+print("Saving animation...")
 ani.save("cartpole.mp4", writer="ffmpeg", fps=1 / dt)
+print("Animation saved in 'cartpole.mp4'")
