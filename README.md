@@ -204,7 +204,7 @@ $$
 
 $$G \begin{bmatrix} u \\ \delta\end{bmatrix} \leq h$$
 
-그 후 `cvxopt.solvers.qp`를 호출해 입력 $u^*$와 슬랙 변수 $\delta^*$를 구합니다.
+그 후 `cvxopt.solvers.qp`를 호출해 입력 $u^{*}$와 슬랙 변수 $\delta^{*}$를 구합니다.
 
 
 
