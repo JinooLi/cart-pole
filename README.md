@@ -131,11 +131,16 @@ $$
 
 ### 4.1 QP 비용함수
 
-$$\begin{aligned}
-u^{*}_{1}(x):= &\text{argmin}_{u,\delta}\left(\frac{1}{2}u^{\intercal}H(x)u+p \delta^{2} \right)\\
-&\text{subject to }L_{f}V(x)+L_{g}V(x)u \leq -\overline{\alpha}_{3}(V(x))+\delta\\
-&\qquad \qquad \ \ L_{f}b(x)+L_{g}b(x)u-\alpha_{3}(h(x))\leq 0
-\end{aligned}
+$$
+u^{*}_{1}(x):= \text{argmin}_{u,\delta}\left(\frac{1}{2}u^{\intercal}H(x)u+p \delta^{2} \right)
+$$
+
+$$
+\text{subject to }L_{f}V(x)+L_{g}V(x)u \leq -\overline{\alpha}_{3}(V(x))+\delta
+$$
+
+$$
+\qquad \qquad L_{f}b(x)+L_{g}b(x)u-\alpha_{3}(h(x))\leq 0
 $$
 
 코드에서는 각 시뮬레이션 스텝마다 다음의 QP를 풉니다(`clbf_ctrl` 내부):
@@ -190,12 +195,12 @@ CLF와 RCBF 제약조건은 아래와 같이 표현될 수 있습니다:
 
 	코드에서는 `condition_G`와 `condition_h` 함수 내에서 다음과 같은 선형 부등호 형태로 만들어집니다:
 	
-	$$G=\begin{bmatrix}\nabla V(\mathbf{x})\mathbf{g}(\mathbf{x}) &-1 \\ \nabla b(\mathbf{x})\mathbf{g}(\mathbf{x}) & 0 \\ 1 &0 \\ -1&0\end{bmatrix},\quad h=\begin{bmatrix}-\nabla V(\mathbf{x})\mathbf{f}(\mathbf{x})-\alpha_1\left(V(\mathbf{x})\right) \\ -\nabla b(\mathbf{x})\mathbf{f}(\mathbf{x})+\alpha_2\left(h(\mathbf{x})\right) \\ F_{\max} \\ F_{\max}\end{bmatrix}$$
+$$G=\begin{bmatrix}\nabla V(\mathbf{x})\mathbf{g}(\mathbf{x}) &-1 \\ \nabla b(\mathbf{x})\mathbf{g}(\mathbf{x}) & 0 \\ 1 &0 \\ -1&0\end{bmatrix},\quad h=\begin{bmatrix}-\nabla V(\mathbf{x})\mathbf{f}(\mathbf{x})-\alpha_1\left(V(\mathbf{x})\right) \\ -\nabla b(\mathbf{x})\mathbf{f}(\mathbf{x})+\alpha_2\left(h(\mathbf{x})\right) \\ F_{\max} \\ F_{\max}\end{bmatrix}$$
 
-	$$G \begin{bmatrix} u \\ \delta\end{bmatrix} \leq h$$
+$$G \begin{bmatrix} u \\ \delta\end{bmatrix} \leq h$$
 
 	
-	그 후 `cvxopt.solvers.qp`를 호출해 입력 $u^{*}$와 슬랙 변수 $\delta^{*}$를 구합니다.
+그 후 `cvxopt.solvers.qp`를 호출해 입력 $u^{*}$와 슬랙 변수 $\delta^{*}$를 구합니다.
 
 
 
