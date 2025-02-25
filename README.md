@@ -55,8 +55,8 @@ $$\dot{\mathbf{x}} = \begin{bmatrix}
 \begin{bmatrix}
 v \\
 \displaystyle \frac{m_{\text{pole}}\sin(\theta)\Big(L\,\omega^2 + g\,\cos(\theta)\Big)}{m_{\text{cart}} + m_{\text{pole}}\sin^2(\theta)} \\
-\omega \\[2mm]
-\displaystyle \frac{- m_{\text{pole}}L\,\omega^2\sin(\theta)\cos(\theta) - (m_{\text{cart}}+m_{\text{pole}})\,g\,\sin(\theta) - \text{pole\_friction}\,\omega}{L\Big(m_{\text{cart}} + m_{\text{pole}}\sin^2(\theta)\Big)}
+\omega \\
+\displaystyle \frac{- m_{\text{pole}}L\,\omega^2\sin(\theta)\cos(\theta) - (m_{\text{cart}}+m_{\text{pole}})\,g\,\sin(\theta) - \text{(pole friction)}\,\omega}{L\Big(m_{\text{cart}} + m_{\text{pole}}\sin^2(\theta)\Big)}
 \end{bmatrix}
 }_{f(\mathbf{x})}
 $$
@@ -190,23 +190,7 @@ CLF와 RCBF 제약조건은 아래와 같이 표현될 수 있습니다:
 
 	코드에서는 `condition_G`와 `condition_h` 함수 내에서 다음과 같은 선형 부등호 형태로 만들어집니다:
 	
-	$$
-	G=
-	\begin{bmatrix}
-	\nabla V(\mathbf{x})\mathbf{g}(\mathbf{x}) &-1\\
-	\nabla b(\mathbf{x})\mathbf{g}(\mathbf{x}) &0\\
-	1 &0\\
-	-1&0
-	\end{bmatrix},
-	\quad
-	h=
-	\begin{bmatrix}
-	-\nabla V(\mathbf{x})\mathbf{f}(\mathbf{x})-\alpha_1\bigl(V(\mathbf{x})\bigr)\\
-	-\nabla b(\mathbf{x})\mathbf{f}(\mathbf{x})+\alpha_2\bigl(h(\mathbf{x})\bigr)\\
-	F_{\max}\\
-	F_{\max}
-	\end{bmatrix}.
-	$$
+	$$G=\begin{bmatrix}\nabla V(\mathbf{x})\mathbf{g}(\mathbf{x}) &-1 \\ \nabla b(\mathbf{x})\mathbf{g}(\mathbf{x}) & 0 \\ 1 &0 \\ -1&0\end{bmatrix},\quad h=\begin{bmatrix}-\nabla V(\mathbf{x})\mathbf{f}(\mathbf{x})-\alpha_1\left(V(\mathbf{x})\right) \\ -\nabla b(\mathbf{x})\mathbf{f}(\mathbf{x})+\alpha_2\left(h(\mathbf{x})\right) \\ F_{\max} \\ F_{\max}\end{bmatrix}$$
 
 	$$G \begin{bmatrix} u \\ \delta\end{bmatrix} \leq h$$
 
