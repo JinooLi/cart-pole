@@ -112,11 +112,11 @@ class CartPole:
         )
         return f
 
-    def g_x(self, state: State) -> np.array:
+    def g_x(self, state: State) -> np.ndarray:
         """g(x) of \dot{x} = f(x)+g(x)u
 
         Returns:
-            np.array[[float], [float], [float], [float]]: g의 output (column vector)
+            np.ndarray[[float], [float], [float], [float]]: g의 output (column vector)
         """
         g = np.array(
             [
