@@ -110,7 +110,7 @@ $h(\mathbf{x})$에 대한 그래디언트 $\nabla h(\mathbf{x})$는 다음과 �
 $$
 \nabla h(\mathbf{x})=
 \begin{bmatrix}
--2(v-v_{\min})-2(v-v_{\max}) &0&0&0
+0&-2(v-v_{\min})-2(v-v_{\max})&0&0
 \end{bmatrix}
 $$
 
