@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import numpy as np
+from cvxopt import matrix, solvers
+import time
 from scipy.linalg import solve_continuous_are
-from cvxopt import solvers, matrix
 
 
 class CartPole:
@@ -270,20 +271,20 @@ class RCBF:
 
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.v_max = 2.5  # x 안전영역 최대값
-        self.v_min = -2.5  # x 안전영역 최소값
+        self.v_max = 2.4  # v 안전영역 최대값
+        self.v_min = -2.4  # v 안전영역 최소값
 
     def h_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수 h.
 
-        h(x) = -(x-x_max)(x-x_min)로 정의함.
+        h(x) = -(v-v_max)(v-v_min)로 정의함.
         """
-        return -(state.v - self.v_max) * (state.v - self.v_min)
+        return -((state.v - self.v_max) * (state.v - self.v_min))
 
     def dh_dx(self, state: CartPole.State) -> np.ndarray:
         """h를 x로 미분한 함수. row vector로 반환
 
-        dh/dx(x) = -2(x-x_max) - 2(x-x_min)로 정의함.
+        dh/dx(x) = -(v-v_max) - (v-v_min)로 정의함.
 
         Args:
             state (CartPole.State): 현재 상태
@@ -294,7 +295,7 @@ class RCBF:
             [
                 [
                     0,
-                    -2 * (state.v - self.v_min) - 2 * (state.v - self.v_max),
+                    -(state.v - self.v_min) - (state.v - self.v_max),
                     0,
                     0,
                 ]
@@ -334,7 +335,7 @@ class CLBF:
         self.cp = cp
         self.clf = clf
         self.rcbf = rcbf
-        self.p = 100
+        self.p = 10
 
     def alpa1(self, input) -> float:
         """class k 함수 alpha1
@@ -380,6 +381,15 @@ class CLBF:
         Returns:
             np.ndarray: [2x2] Q
         """
+        # state의 norm의 크기에 반비례하게 p를 설정한다.
+        # 이를 통해 원하는 state에 가까우면 가까울 수록 CLF의 영향력을 높인다.
+        # 따라서 원하는 state에 비교적 빠르게 수렴할 수 있도록 한다.
+        npstate = self.clf.adj_state(state).to_np()
+        norm_state = np.linalg.norm(npstate)
+        if norm_state < 10e-2:
+            norm_state = 10e-2
+        self.p = 10 ** (1 / norm_state)
+
         H = self.getH(state)
         Q = np.array(
             [
@@ -560,23 +570,32 @@ theta_history = []
 theta_dot_history = []
 f_command_history = []
 
-
+maxtime = 0
+# Run the simulation
 for i in range(num_steps):
     f_command_history.append(f)
     state: CartPole.State = cp.step(f)
     try:
+        start = time.time()
         f = controller.clbf_ctrl(state, t)
+        end = time.time()
+        interval = end - start
+        if interval > maxtime:
+            maxtime = interval
     except:
         f_command_history.pop()
         print("QP problem is not feasible")
         print("Simulation terminated")
         break
+
     time_history.append(t)
     x_history.append(state.x)
     v_history.append(state.v)
     theta_history.append(state.theta)
     theta_dot_history.append(state.theta_dot)
     t += dt
+
+print("max time: ", maxtime)
 
 # Plotting the results
 plt.figure(figsize=(12, 8))
