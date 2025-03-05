@@ -538,8 +538,8 @@ class Controller:
 
 
 # Simulation parameters
-dt = 0.0001  # Time step (seconds)
-ctrl_dt = dt * 1000  # Controller time step (seconds)
+dt = 0.0001  # Simulation time step (seconds)
+ctrl_dt = 0.1  # Controller time step (seconds)
 T = 20.0  # Total simulation time (seconds)
 num_steps = int(T / dt)  # Number of simulation steps
 
