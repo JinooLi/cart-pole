@@ -271,15 +271,19 @@ class RCBF:
 
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.v_max = 2.4  # v 안전영역 최대값
-        self.v_min = -2.4  # v 안전영역 최소값
+        self.v_max = 2.3  # v 안전영역 최대값
+        self.v_min = -2.3  # v 안전영역 최소값
+
+    def set_v_bound(self, v_max: float, v_min: float):
+        self.v_max = v_max
+        self.v_min = v_min
 
     def h_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수 h.
 
         h(x) = -(v-v_max)(v-v_min)로 정의함.
         """
-        return -((state.v - self.v_max) * (state.v - self.v_min))
+        return -(state.v - self.v_max) * (state.v - self.v_min)
 
     def dh_dx(self, state: CartPole.State) -> np.ndarray:
         """h를 x로 미분한 함수. row vector로 반환
@@ -381,14 +385,12 @@ class CLBF:
         Returns:
             np.ndarray: [2x2] Q
         """
-        # state의 norm의 크기에 반비례하게 p를 설정한다.
+        # CLF의 크기에 반비례하게 p를 설정한다.
         # 이를 통해 원하는 state에 가까우면 가까울 수록 CLF의 영향력을 높인다.
-        # 따라서 원하는 state에 비교적 빠르게 수렴할 수 있도록 한다.
-        npstate = self.clf.adj_state(state).to_np()
-        norm_state = np.linalg.norm(npstate)
-        if norm_state < 10e-2:
-            norm_state = 10e-2
-        self.p = 10 ** (1 / norm_state)
+        v = float(self.clf.V(state))
+        print("v: ", v)
+        self.p = 10000 / (10 * v + 1)
+        print("p: ", self.p)
 
         H = self.getH(state)
         Q = np.array(
@@ -536,8 +538,8 @@ class Controller:
 
 
 # Simulation parameters
-dt = 0.01  # Time step (seconds)
-ctrl_dt = dt * 10  # Controller time step (seconds)
+dt = 0.0001  # Time step (seconds)
+ctrl_dt = dt * 1000  # Controller time step (seconds)
 T = 20.0  # Total simulation time (seconds)
 num_steps = int(T / dt)  # Number of simulation steps
 
@@ -545,7 +547,7 @@ num_steps = int(T / dt)  # Number of simulation steps
 cp = CartPole(
     x=0.0,
     v=0.0,
-    theta=3 * np.pi + np.pi / 7,
+    theta=np.pi + np.pi / 7,
     theta_dot=0.0,
     dt=dt,
     L=1.0,
@@ -553,7 +555,7 @@ cp = CartPole(
     m_cart=1.0,
     m_pole=0.1,
     pole_friction=0.1,
-    f_max=30,
+    f_max=15,
 )
 
 rcbf = RCBF(cp)
@@ -571,6 +573,10 @@ theta_dot_history = []
 f_command_history = []
 
 maxtime = 0
+maxV = 0
+minV = 0
+eout = 0
+eout_time = 0
 # Run the simulation
 for i in range(num_steps):
     f_command_history.append(f)
@@ -580,14 +586,17 @@ for i in range(num_steps):
         f = controller.clbf_ctrl(state, t)
         end = time.time()
         interval = end - start
-        if interval > maxtime:
-            maxtime = interval
+        maxtime = max(maxtime, interval)  # 계산하는 데 걸린 시간의 최댓값 check
     except:
         f_command_history.pop()
         print("QP problem is not feasible")
         print("Simulation terminated")
         break
-
+    maxV = max(maxV, state.v)  # 속도의 최댓값 check
+    minV = min(minV, state.v)  # 속도의 최솟값 check
+    if abs(state.v) > controller.clbf.rcbf.v_max:  # 속도가 2.4를 넘어가면 표기
+        eout = f
+        eout_time = t
     time_history.append(t)
     x_history.append(state.x)
     v_history.append(state.v)
@@ -596,6 +605,10 @@ for i in range(num_steps):
     t += dt
 
 print("max time: ", maxtime)
+print("max V: ", maxV)
+print("min V: ", minV)
+print("eout: ", eout)
+print("eout time: ", eout_time)
 
 # Plotting the results
 plt.figure(figsize=(12, 8))
@@ -644,10 +657,26 @@ def init():
     return cart, line
 
 
+# 애니메이션을 위해 프레임 수 조절
+fps = 60
+x_fps_history = []
+theta_fps_history = []
+t = 0
+frame_interval = 1 / fps
+x_fps_history.append(x_history[0])
+theta_fps_history.append(theta_history[0])
+for i in range(len(x_history)):
+    t += dt
+    if t >= frame_interval:
+        x_fps_history.append(x_history[i])
+        theta_fps_history.append(theta_history[i])
+        t -= frame_interval
+
+
 def animate(i):
-    if i < len(x_history):
-        x = x_history[i]
-        theta = theta_history[i]
+    if i < len(x_fps_history):
+        x = x_fps_history[i]
+        theta = theta_fps_history[i]
     else:
         x = 0
         theta = 0
@@ -661,9 +690,14 @@ def animate(i):
 
 
 ani = animation.FuncAnimation(
-    fig, animate, frames=len(x_history), init_func=init, interval=dt * 1000, blit=True
+    fig,
+    animate,
+    frames=len(x_fps_history),
+    init_func=init,
+    interval=1000 / fps,
+    blit=True,
 )
 
 print("Saving animation...")
-ani.save("cartpole.mp4", writer="ffmpeg", fps=1 / dt)
+ani.save("cartpole.mp4", writer="ffmpeg", fps=fps)
 print("Animation saved in 'cartpole.mp4'")
