@@ -662,7 +662,7 @@ fps = 60
 x_fps_history = []
 theta_fps_history = []
 t = 0
-frame_interval = 1 / fps
+frame_interval = 1 / fps  # seconds
 x_fps_history.append(x_history[0])
 theta_fps_history.append(theta_history[0])
 for i in range(len(x_history)):
@@ -694,7 +694,7 @@ ani = animation.FuncAnimation(
     animate,
     frames=len(x_fps_history),
     init_func=init,
-    interval=1000 / fps,
+    interval=1000 * frame_interval,
     blit=True,
 )
 
