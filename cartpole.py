@@ -6,6 +6,16 @@ import numpy as np
 from cvxopt import matrix, solvers
 import time
 from scipy.linalg import solve_continuous_are
+import os
+
+# 이 파일이 있는 주소를 알아낸다.
+path = os.path.abspath(__file__)
+# 디렉토리 주소만 가져온다.
+dir_path = os.path.dirname(path)
+
+os.system(f"python3 {dir_path}/lagrangian-to-difeq.py")
+
+import __difeq__ as dif
 
 
 class CartPole:
@@ -147,29 +157,33 @@ class CartPole:
         Returns:
             State: Updated state of the cart-pole system
         """
-        # Common denominator
-        denom = self.m_cart + self.m_pole * np.sin(self.state.theta) ** 2
-
         # Calculate cart acceleration
-        x_ddot = (
-            F
-            + self.m_pole
-            * np.sin(self.state.theta)
-            * (self.L * self.state.theta_dot**2 + self.g * np.cos(self.state.theta))
-        ) / denom
+        x_ddot = dif.x_ddot(
+            v=self.state.v,
+            angle=self.state.theta,
+            omega=self.state.theta_dot,
+            l=self.L,
+            m=self.m_pole,
+            M=self.m_cart,
+            g=self.g,
+            fric_theta=self.pole_friction,
+            fric_x=0,
+            f=F,
+        )
 
         # Calculate pole angular acceleration with damping
-        theta_ddot = (
-            -F * np.cos(self.state.theta)
-            - self.m_pole
-            * self.L
-            * self.state.theta_dot**2
-            * np.sin(self.state.theta)
-            * np.cos(self.state.theta)
-            - (self.m_cart + self.m_pole) * self.g * np.sin(self.state.theta)
-            - self.pole_friction * self.state.theta_dot
-        ) / (self.L * denom)
-
+        theta_ddot = dif.theta_ddot(
+            v=self.state.v,
+            angle=self.state.theta,
+            omega=self.state.theta_dot,
+            l=self.L,
+            m=self.m_pole,
+            M=self.m_cart,
+            g=self.g,
+            fric_theta=self.pole_friction,
+            fric_x=0,
+            f=F,
+        )
         # Update cart state
         self.state.v += x_ddot * self.dt  # 가속도 -> 속도
         self.state.x += self.state.v * self.dt  # 속도 -> 위치

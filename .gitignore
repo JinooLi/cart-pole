@@ -2,3 +2,5 @@ venv
 .vscode
 cartpole.mp4
 cartpole.png
+__pycache__
+__difeq__.py
