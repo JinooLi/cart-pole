@@ -44,7 +44,7 @@ print("pendulum velo square:")
 sp.pprint(pendulum_vel_sqare)
 
 # 시스템의 총 위치에너지와 운동에너지
-V = -m * g * l * sp.cos(theta)  # 위치에너지
+V = m * g * pendulum_pos_y  # 위치에너지
 T = 1 / 2 * M * cart_vel_sqare + 1 / 2 * m * pendulum_vel_sqare  # 운동에너지
 
 V = sp.simplify(V)
@@ -63,8 +63,10 @@ print("L:")
 sp.pprint(L)
 
 # 각 좌표계에 대한 라그랑주 방정식. 마찰력과 외력을 포함한다.
-x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), -friction_x + f)
-theta_eq = sp.Eq(L.diff(theta_dot).diff(t) - L.diff(theta), -friction_theta)
+# x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), -friction_x + f)
+# theta_eq = sp.Eq(L.diff(theta_dot).diff(t) - L.diff(theta), -friction_theta)
+x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), f)
+theta_eq = sp.Eq(L.diff(theta_dot).diff(t) - L.diff(theta), 0)
 
 print("x_eq:")
 sp.pprint(x_eq)
