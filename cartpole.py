@@ -262,8 +262,8 @@ class CLF:
             float: V의 output
         """
 
-        state: np.ndarray = self.adj_state(state).to_np()
-        return state.T @ self.M @ state
+        state: CartPole.State = self.adj_state(state)
+        return float(state.to_np().T @ self.M @ state.to_np())
 
     def dV_dx(self, state: CartPole.State) -> np.ndarray:
         """Lyapunov function의 시간미분을 정의하는 함수
@@ -275,9 +275,8 @@ class CLF:
         Returns:
             np.ndarray[[float, float, float, float]]: dV_dx의 output (row vector)
         """
-
-        state: np.ndarray = self.adj_state(state).to_np()
-        return 2 * state.T @ self.M
+        state: CartPole.State = self.adj_state(state)
+        return 2 * state.to_np().T @ self.M
 
 
 class RCBF:
@@ -286,11 +285,11 @@ class RCBF:
     def __init__(self, cp: CartPole):
         self.cp = cp
         self.v_max = 2.3  # v 안전영역 최대값
-        self.v_min = -2.3  # v 안전영역 최소값
+        self.v_min = -self.v_max  # v 안전영역 최소값
 
-    def set_v_bound(self, v_max: float, v_min: float):
+    def set_v_bound(self, v_max: float):
         self.v_max = v_max
-        self.v_min = v_min
+        self.v_min = -v_max
 
     def h_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수 h.
@@ -522,31 +521,55 @@ class Controller:
         state: CartPole.State,
         t: float,
     ) -> float:
-        if not self.check_ctrl_dt(t):
-            return self.output
-
-        self.output = -float(self.clbf.clf.K @ self.clbf.clf.adj_state(state).to_np())
+        if self.check_ctrl_dt(t):
+            self.output = -float(
+                self.clbf.clf.K @ self.clbf.clf.adj_state(state).to_np()
+            )
         return self.output
 
     def clbf_ctrl(self, state: CartPole.State, t: float) -> float:
-        if not self.check_ctrl_dt(t):
-            return self.output
+        if self.check_ctrl_dt(t):
+            Q = self.clbf.getQ(state)
+            c = np.zeros((2, 1))
+            G = self.clbf.condition_G(state)
+            h = self.clbf.condition_h(state)
 
-        Q = self.clbf.getQ(state)
-        c = np.zeros((2, 1))
-        G = self.clbf.condition_G(state)
-        h = self.clbf.condition_h(state)
+            solution = solvers.qp(
+                matrix(Q),
+                matrix(c),
+                matrix(G),
+                matrix(h),
+            )
 
-        solution = solvers.qp(
-            matrix(Q),
-            matrix(c),
-            matrix(G),
-            matrix(h),
-        )
+            u = solution["x"][0]
 
-        u = solution["x"][0]
+            self.output = float(u)
 
-        self.output = float(u)
+        return self.output
+
+    def swingup_ctrl(self, state: CartPole.State, t: float) -> float:
+        if state.theta == 0:
+            return 0.3
+        state = self.clbf.clf.adj_state(state)
+        if self.check_ctrl_dt(t):
+            lam = 0.5
+            u_a = 1
+            E_p = (
+                0.5 * state.theta_dot**2 * self.cp.m_pole * self.cp.L**2
+                + self.cp.m_pole * self.cp.g * self.cp.L * (np.cos(state.theta) - 1)
+            )
+            self.output = -u_a * (
+                E_p * np.cos(state.theta) * state.theta_dot + lam * state.theta_dot
+            )
+
+        return self.output
+
+    def switching_ctrl(self, state: CartPole.State, t: float) -> float:
+        if self.check_ctrl_dt(t):
+            if self.clbf.clf.V(state) < 10:
+                self.output = self.clbf_ctrl(state, t)
+            else:
+                self.output = self.swingup_ctrl(state, t)
 
         return self.output
 
@@ -561,7 +584,7 @@ num_steps = int(T / dt)  # Number of simulation steps
 cp = CartPole(
     x=0.0,
     v=0.0,
-    theta=np.pi + np.pi / 7,
+    theta=0.00,
     theta_dot=0.0,
     dt=dt,
     L=1.0,
@@ -597,7 +620,7 @@ for i in range(num_steps):
     state: CartPole.State = cp.step(f)
     try:
         start = time.time()
-        f = controller.clbf_ctrl(state, t)
+        f = controller.switching_ctrl(state, t)
         end = time.time()
         interval = end - start
         maxtime = max(maxtime, interval)  # 계산하는 데 걸린 시간의 최댓값 check
