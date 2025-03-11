@@ -512,15 +512,21 @@ class Controller:
         self.sum = 0
 
     def check_ctrl_dt(self, t: float) -> bool:
-        if t % self.ctrl_dt < self.cp.dt:
+        """현재 시각이 제어 주기의 배수인지 확인하는 함수
+
+        Args:
+            t (float): 현재 시각
+
+        Returns:
+            bool: 배수이면 True, 아니면 False
+        """
+        if (
+            t % self.ctrl_dt < self.cp.dt
+        ):  # 나머지의 오차가 시뮬레이션 주기보다 작으면 True
             return True
         return False
 
-    def ctrl(
-        self,
-        state: CartPole.State,
-        t: float,
-    ) -> float:
+    def ctrl(self, state: CartPole.State, t: float) -> float:
         if self.check_ctrl_dt(t):
             self.output = -float(
                 self.clbf.clf.K @ self.clbf.clf.adj_state(state).to_np()
