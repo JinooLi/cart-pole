@@ -587,21 +587,24 @@ class Controller:
 
     def clbf_ctrl(self, state: CartPole.State, t: float) -> float:
         if self.check_ctrl_dt(t):
-            Q = self.clbf.getQ(state)
-            c = np.zeros((2, 1))
-            G = self.clbf.condition_G(state)
-            h = self.clbf.condition_h(state)
+            if state.theta == 0 and state.theta_dot == 0:
+                self.output = 0.3
+            else:
+                Q = self.clbf.getQ(state)
+                c = np.zeros((2, 1))
+                G = self.clbf.condition_G(state)
+                h = self.clbf.condition_h(state)
 
-            solution = solvers.qp(
-                matrix(Q),
-                matrix(c),
-                matrix(G),
-                matrix(h),
-            )
+                solution = solvers.qp(
+                    matrix(Q),
+                    matrix(c),
+                    matrix(G),
+                    matrix(h),
+                )
 
-            u = solution["x"][0]
+                u = solution["x"][0]
 
-            self.output = float(u)
+                self.output = float(u)
 
         return self.output
 
@@ -616,7 +619,7 @@ num_steps = int(T / dt)  # Number of simulation steps
 cp = CartPole(
     x=0.0,
     v=0.0,
-    theta= 0.2,
+    theta= 0,
     theta_dot=0.0,
     dt=dt,
     L=1.0,
