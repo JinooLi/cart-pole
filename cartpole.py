@@ -622,7 +622,7 @@ if __name__ == "__main__":
         g=9.81,
         m_cart=1.0,
         m_pole=0.1,
-        pole_friction=0.1,
+        pole_friction=0.01,
         f_max=15,
     )
 

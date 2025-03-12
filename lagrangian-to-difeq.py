@@ -22,8 +22,8 @@ fric_x, fric_theta = sp.symbols("fric_x fric_theta", real=True)
 # 마찰력 함수 정의
 friction_x = sp.Function("friction")(x_dot)
 friction_theta = sp.Function("friction")(theta_dot)
-friction_x = 2* fric_x * sp.atan(x_dot) / sp.pi
-friction_theta = 2* fric_theta * sp.atan(theta_dot) / sp.pi
+friction_x = -sp.sign(x_dot) * fric_x
+friction_theta = -sp.sign(theta_dot) * fric_theta
 
 # 차량에 대한 외력 정의
 f = sp.symbols("f", real=True)
@@ -63,10 +63,10 @@ print("L:")
 sp.pprint(L)
 
 # 각 좌표계에 대한 라그랑주 방정식. 마찰력과 외력을 포함한다.
-# x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), -friction_x + f)
-# theta_eq = sp.Eq(L.diff(theta_dot).diff(t) - L.diff(theta), -friction_theta)
-x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), f)
-theta_eq = sp.Eq(L.diff(theta_dot).diff(t) - L.diff(theta), 0)
+x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), -friction_x + f)
+theta_eq = sp.Eq(L.diff(theta_dot).diff(t) - L.diff(theta), -friction_theta)
+# x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), f)
+# theta_eq = sp.Eq(L.diff(theta_dot).diff(t) - L.diff(theta), 0)
 
 print("x_eq:")
 sp.pprint(x_eq)
