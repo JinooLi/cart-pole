@@ -512,7 +512,7 @@ class Controller:
         self.sum = 0
         self.lam = 1  # swingup control
         self.u_a = 1  # swingup control의 크기
-        self.linearizable_thereshold = (
+        self.linearizable_threshold = (
             10  # CLF의 V값이 이 값보다 작으면 linearizable control을 사용한다.
         )
 
@@ -596,7 +596,7 @@ class Controller:
 
     def switching_ctrl(self, state: CartPole.State, t: float) -> float:
         if self.check_ctrl_dt(t):
-            if self.clbf.clf.V(state) < self.linearizable_thereshold:
+            if self.clbf.clf.V(state) < self.linearizable_threshold:
                 self.output = self.clbf_ctrl(state, t)
             else:
                 self.output = self.swingup_ctrl(state, t)
