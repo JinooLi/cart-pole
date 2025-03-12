@@ -564,9 +564,28 @@ class Controller:
                 0.5 * state.theta_dot**2 * self.cp.m_pole * self.cp.L**2
                 + self.cp.m_pole * self.cp.g * self.cp.L * (np.cos(state.theta) - 1)
             )
-            self.output = -u_a * (
+            out = -u_a * (
                 E_p * np.cos(state.theta) * state.theta_dot + lam * state.theta_dot
             )
+
+            dh_dx = self.clbf.rcbf.dh_dx(state)
+            g_x = self.cp.g_x(state)
+            f_x = self.cp.f_x(state)
+            h_x = self.clbf.rcbf.h_x(state)
+
+            Q = np.array([[1]], dtype=np.float64)
+            c = np.array([[-out]], dtype=np.float64)
+            G = np.array([[-float(dh_dx @ g_x)]], dtype=np.float64)
+            h = np.array([[float(dh_dx @ f_x + h_x)]], dtype=np.float64)
+
+            solution = solvers.qp(
+                matrix(Q),
+                matrix(c),
+                matrix(G),
+                matrix(h),
+            )
+
+            self.output = float(solution["x"][0])
 
         return self.output
 
@@ -580,167 +599,168 @@ class Controller:
         return self.output
 
 
-# Simulation parameters
-dt = 0.0001  # Simulation time step (seconds)
-ctrl_dt = 0.1  # Controller time step (seconds)
-T = 20.0  # Total simulation time (seconds)
-num_steps = int(T / dt)  # Number of simulation steps
+if __name__ == "__main__":
+    # Simulation parameters
+    dt = 0.0001  # Simulation time step (seconds)
+    ctrl_dt = 0.1  # Controller time step (seconds)
+    T = 20.0  # Total simulation time (seconds)
+    num_steps = int(T / dt)  # Number of simulation steps
 
-# Initialize the system
-cp = CartPole(
-    x=0.0,
-    v=0.0,
-    theta=0.00,
-    theta_dot=0.0,
-    dt=dt,
-    L=1.0,
-    g=9.81,
-    m_cart=1.0,
-    m_pole=0.1,
-    pole_friction=0.1,
-    f_max=15,
-)
+    # Initialize the system
+    cp = CartPole(
+        x=0.0,
+        v=0.0,
+        theta=0.00,
+        theta_dot=0.0,
+        dt=dt,
+        L=1.0,
+        g=9.81,
+        m_cart=1.0,
+        m_pole=0.1,
+        pole_friction=0.1,
+        f_max=15,
+    )
 
-rcbf = RCBF(cp)
-clf = CLF(cp)
-clbf = CLBF(cp, clf, rcbf)
-t = 0.0
-f = 0.0
-controller = Controller(first_out=f, dt=dt, ctrl_dt=ctrl_dt, cp=cp, clbf=clbf)
-# Data storage for simulation results
-time_history = []
-x_history = []
-v_history = []
-theta_history = []
-theta_dot_history = []
-f_command_history = []
+    rcbf = RCBF(cp)
+    clf = CLF(cp)
+    clbf = CLBF(cp, clf, rcbf)
+    t = 0.0
+    f = 0.0
+    controller = Controller(first_out=f, dt=dt, ctrl_dt=ctrl_dt, cp=cp, clbf=clbf)
+    # Data storage for simulation results
+    time_history = []
+    x_history = []
+    v_history = []
+    theta_history = []
+    theta_dot_history = []
+    f_command_history = []
 
-maxtime = 0
-maxV = 0
-minV = 0
-eout = 0
-eout_time = 0
-# Run the simulation
-for i in range(num_steps):
-    f_command_history.append(f)
-    state: CartPole.State = cp.step(f)
-    try:
+    maxtime = 0
+    maxV = 0
+    minV = 0
+    eout = 0
+    eout_time = 0
+    # Run the simulation
+    for i in range(num_steps):
+        f_command_history.append(f)
+        state: CartPole.State = cp.step(f)
+        # try:
         start = time.time()
         f = controller.switching_ctrl(state, t)
         end = time.time()
         interval = end - start
         maxtime = max(maxtime, interval)  # 계산하는 데 걸린 시간의 최댓값 check
-    except:
-        f_command_history.pop()
-        print("QP problem is not feasible")
-        print("Simulation terminated")
-        break
-    maxV = max(maxV, state.v)  # 속도의 최댓값 check
-    minV = min(minV, state.v)  # 속도의 최솟값 check
-    if abs(state.v) > controller.clbf.rcbf.v_max:  # 속도가 2.4를 넘어가면 표기
-        eout = f
-        eout_time = t
-    time_history.append(t)
-    x_history.append(state.x)
-    v_history.append(state.v)
-    theta_history.append(state.theta)
-    theta_dot_history.append(state.theta_dot)
-    t += dt
+        # except:
+        #     f_command_history.pop()
+        #     print("QP problem is not feasible")
+        #     print("Simulation terminated")
+        #     break
+        maxV = max(maxV, state.v)  # 속도의 최댓값 check
+        minV = min(minV, state.v)  # 속도의 최솟값 check
+        if abs(state.v) > controller.clbf.rcbf.v_max:  # 속도가 2.4를 넘어가면 표기
+            eout = f
+            eout_time = t
+        time_history.append(t)
+        x_history.append(state.x)
+        v_history.append(state.v)
+        theta_history.append(state.theta)
+        theta_dot_history.append(state.theta_dot)
+        t += dt
 
-print("max time: ", maxtime)
-print("max V: ", maxV)
-print("min V: ", minV)
-print("eout: ", eout)
-print("eout time: ", eout_time)
+    print("max time: ", maxtime)
+    print("max V: ", maxV)
+    print("min V: ", minV)
+    print("eout: ", eout)
+    print("eout time: ", eout_time)
 
-# Plotting the results
-plt.figure(figsize=(12, 8))
+    # Plotting the results
+    plt.figure(figsize=(12, 8))
 
-# Cart state: position, velocity, and applied force
-plt.subplot(2, 1, 1)
-plt.plot(time_history, x_history, label="Cart Position (x)")
-plt.plot(time_history, v_history, label="Cart Velocity (v)")
-plt.plot(time_history, f_command_history, "--", label="Force Command (F)")
-plt.xlabel("Time (s)")
-plt.ylabel("Position / Velocity / Force")
-plt.legend()
-plt.title("Cart State")
+    # Cart state: position, velocity, and applied force
+    plt.subplot(2, 1, 1)
+    plt.plot(time_history, x_history, label="Cart Position (x)")
+    plt.plot(time_history, v_history, label="Cart Velocity (v)")
+    plt.plot(time_history, f_command_history, "--", label="Force Command (F)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Position / Velocity / Force")
+    plt.legend()
+    plt.title("Cart State")
 
-# Pole state: angle and angular velocity
-plt.subplot(2, 1, 2)
-plt.plot(time_history, theta_history, label="Pole Angle (θ)")
-plt.plot(time_history, theta_dot_history, label="Pole Angular Velocity (θ_dot)")
-plt.xlabel("Time (s)")
-plt.ylabel("Angle / Angular Velocity")
-plt.legend()
-plt.title("Pole State")
+    # Pole state: angle and angular velocity
+    plt.subplot(2, 1, 2)
+    plt.plot(time_history, theta_history, label="Pole Angle (θ)")
+    plt.plot(time_history, theta_dot_history, label="Pole Angular Velocity (θ_dot)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Angle / Angular Velocity")
+    plt.legend()
+    plt.title("Pole State")
 
-plt.tight_layout()
-plt.savefig("cartpole.png")
-print("Simulation done. Results saved in 'cartpole.png'")
+    plt.tight_layout()
+    plt.savefig("cartpole.png")
+    print("Simulation done. Results saved in 'cartpole.png'")
 
-# --- Animation ---
-fig, ax = plt.subplots()
-ax.set_xlim(-5, 5)
-ax.set_ylim(-2, 2)
-fig.set_size_inches(10, 4)
-cart_width = 0.2
-cart_height = 0.2
-pole_length = cp.L
+    # --- Animation ---
+    fig, ax = plt.subplots()
+    ax.set_xlim(-5, 5)
+    ax.set_ylim(-2, 2)
+    fig.set_size_inches(10, 4)
+    cart_width = 0.2
+    cart_height = 0.2
+    pole_length = cp.L
 
-# Create initial objects: cart (rectangle) and pole (line)
-cart = plt.Rectangle((0, 0), cart_width, cart_height, fc="k")
-ax.add_patch(cart)
-(line,) = ax.plot([], [], lw=2)
-
-
-def init():
-    cart.set_xy((-cart_width / 2, -cart_height / 2))
-    line.set_data([], [])
-    return cart, line
+    # Create initial objects: cart (rectangle) and pole (line)
+    cart = plt.Rectangle((0, 0), cart_width, cart_height, fc="k")
+    ax.add_patch(cart)
+    (line,) = ax.plot([], [], lw=2)
 
 
-# 애니메이션을 위해 프레임 수 조절
-fps = 60
-x_fps_history = []
-theta_fps_history = []
-t = 0
-frame_interval = 1 / fps  # seconds
-x_fps_history.append(x_history[0])
-theta_fps_history.append(theta_history[0])
-for i in range(len(x_history)):
-    t += dt
-    if t >= frame_interval:
-        x_fps_history.append(x_history[i])
-        theta_fps_history.append(theta_history[i])
-        t -= frame_interval
+    def init():
+        cart.set_xy((-cart_width / 2, -cart_height / 2))
+        line.set_data([], [])
+        return cart, line
 
 
-def animate(i):
-    if i < len(x_fps_history):
-        x = x_fps_history[i]
-        theta = theta_fps_history[i]
-    else:
-        x = 0
-        theta = 0
-    # Update cart position (using center as reference)
-    cart.set_xy((x - cart_width / 2, -cart_height / 2))
-    # Compute the pole's end point from the top center of the cart
-    pole_x = x + pole_length * np.sin(theta)
-    pole_y = pole_length * np.cos(theta)
-    line.set_data([x, pole_x], [0, -pole_y])
-    return cart, line
+    # 애니메이션을 위해 프레임 수 조절
+    fps = 60
+    x_fps_history = []
+    theta_fps_history = []
+    t = 0
+    frame_interval = 1 / fps  # seconds
+    x_fps_history.append(x_history[0])
+    theta_fps_history.append(theta_history[0])
+    for i in range(len(x_history)):
+        t += dt
+        if t >= frame_interval:
+            x_fps_history.append(x_history[i])
+            theta_fps_history.append(theta_history[i])
+            t -= frame_interval
 
 
-ani = animation.FuncAnimation(
-    fig,
-    animate,
-    frames=len(x_fps_history),
-    init_func=init,
-    interval=1000 * frame_interval,
-    blit=True,
-)
+    def animate(i):
+        if i < len(x_fps_history):
+            x = x_fps_history[i]
+            theta = theta_fps_history[i]
+        else:
+            x = 0
+            theta = 0
+        # Update cart position (using center as reference)
+        cart.set_xy((x - cart_width / 2, -cart_height / 2))
+        # Compute the pole's end point from the top center of the cart
+        pole_x = x + pole_length * np.sin(theta)
+        pole_y = pole_length * np.cos(theta)
+        line.set_data([x, pole_x], [0, -pole_y])
+        return cart, line
 
-print("Saving animation...")
-ani.save("cartpole.mp4", writer="ffmpeg", fps=fps)
-print("Animation saved in 'cartpole.mp4'")
+
+    ani = animation.FuncAnimation(
+        fig,
+        animate,
+        frames=len(x_fps_history),
+        init_func=init,
+        interval=1000 * frame_interval,
+        blit=True,
+    )
+
+    print("Saving animation...")
+    ani.save("cartpole.mp4", writer="ffmpeg", fps=fps)
+    print("Animation saved in 'cartpole.mp4'")
