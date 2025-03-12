@@ -207,7 +207,7 @@ class CLF:
             cp (CartPole): CartPole 객체를 받아 초기화
         """
         self.lin_V_thereshold = 10  # linearizable 여부를 판단하는 임계값
-        self.lam = 0.5  # swing up을 위한 상수
+        self.lam = 1  # swing up을 위한 상수
         self.cp = cp
         A = np.array(
             [
@@ -273,7 +273,7 @@ class CLF:
             0.5 * cp.m_pole * cp.L**2 * state.theta_dot**2
             + cp.m_pole * cp.g * cp.L * (np.cos(state.theta) - 1)
         )
-        return 0.5(E_p**2 + cp.m_cart * cp.L * self.lam * state.v**2)
+        return 0.5 * (E_p**2 + cp.m_cart * cp.L * self.lam * state.v**2)
 
     def swingup_dV_dx(self, state: CartPole.State) -> np.ndarray:
         state = self.adj_state(state)
@@ -333,7 +333,7 @@ class RCBF:
 
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.v_max = 2.3  # v 안전영역 최대값
+        self.v_max = 10  # v 안전영역 최대값
         self.v_min = -self.v_max  # v 안전영역 최소값
 
     def set_v_bound(self, v_max: float):
@@ -454,8 +454,8 @@ class CLBF:
             print("v: ", v)
             self.p = 10000 / (10 * v + 1)
             print("p: ", self.p)
-        else :
-            self.p = 100
+        else:
+            self.p = 10
 
         H = self.getH(state)
         Q = np.array(
@@ -619,7 +619,7 @@ num_steps = int(T / dt)  # Number of simulation steps
 cp = CartPole(
     x=0.0,
     v=0.0,
-    theta= 0,
+    theta=0.1,
     theta_dot=0.0,
     dt=dt,
     L=1.0,
@@ -627,7 +627,7 @@ cp = CartPole(
     m_cart=1.0,
     m_pole=0.1,
     pole_friction=0.1,
-    f_max=15,
+    f_max=20,
 )
 
 rcbf = RCBF(cp)
