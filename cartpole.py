@@ -284,7 +284,7 @@ class RCBF:
 
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.v_max = 2.3  # v 안전영역 최대값
+        self.v_max = 1.8  # v 안전영역 최대값
         self.v_min = -self.v_max  # v 안전영역 최소값
 
     def set_v_bound(self, v_max: float):
@@ -510,6 +510,11 @@ class Controller:
         self.dt = dt
         self.ctrl_dt = ctrl_dt
         self.sum = 0
+        self.lam = 1  # swingup control
+        self.u_a = 1  # swingup control의 크기
+        self.linearizable_thereshold = (
+            10  # CLF의 V값이 이 값보다 작으면 linearizable control을 사용한다.
+        )
 
     def check_ctrl_dt(self, t: float) -> bool:
         """현재 시각이 제어 주기의 배수인지 확인하는 함수
@@ -558,8 +563,8 @@ class Controller:
             return 0.3
         state = self.clbf.clf.adj_state(state)
         if self.check_ctrl_dt(t):
-            lam = 0.5
-            u_a = 1
+            lam = self.lam
+            u_a = self.u_a
             E_p = (
                 0.5 * state.theta_dot**2 * self.cp.m_pole * self.cp.L**2
                 + self.cp.m_pole * self.cp.g * self.cp.L * (np.cos(state.theta) - 1)
@@ -591,7 +596,7 @@ class Controller:
 
     def switching_ctrl(self, state: CartPole.State, t: float) -> float:
         if self.check_ctrl_dt(t):
-            if self.clbf.clf.V(state) < 10:
+            if self.clbf.clf.V(state) < self.linearizable_thereshold:
                 self.output = self.clbf_ctrl(state, t)
             else:
                 self.output = self.swingup_ctrl(state, t)
@@ -644,20 +649,20 @@ if __name__ == "__main__":
     for i in range(num_steps):
         f_command_history.append(f)
         state: CartPole.State = cp.step(f)
-        # try:
-        start = time.time()
-        f = controller.switching_ctrl(state, t)
-        end = time.time()
-        interval = end - start
-        maxtime = max(maxtime, interval)  # 계산하는 데 걸린 시간의 최댓값 check
-        # except:
-        #     f_command_history.pop()
-        #     print("QP problem is not feasible")
-        #     print("Simulation terminated")
-        #     break
+        try:
+            start = time.time()
+            f = controller.switching_ctrl(state, t)
+            end = time.time()
+            interval = end - start
+            maxtime = max(maxtime, interval)  # 계산하는 데 걸린 시간의 최댓값 check
+        except:
+            f_command_history.pop()
+            print("QP problem is not feasible")
+            print("Simulation terminated")
+            break
         maxV = max(maxV, state.v)  # 속도의 최댓값 check
         minV = min(minV, state.v)  # 속도의 최솟값 check
-        if abs(state.v) > controller.clbf.rcbf.v_max:  # 속도가 2.4를 넘어가면 표기
+        if abs(state.v) > controller.clbf.rcbf.v_max:  # 속도가 제한을 넘어가면 표기
             eout = f
             eout_time = t
         time_history.append(t)
@@ -704,8 +709,8 @@ if __name__ == "__main__":
     ax.set_xlim(-5, 5)
     ax.set_ylim(-2, 2)
     fig.set_size_inches(10, 4)
-    cart_width = 0.2
-    cart_height = 0.2
+    cart_width = np.sqrt(cp.m_cart) * 0.2
+    cart_height = np.sqrt(cp.m_cart) * 0.2
     pole_length = cp.L
 
     # Create initial objects: cart (rectangle) and pole (line)
@@ -713,12 +718,10 @@ if __name__ == "__main__":
     ax.add_patch(cart)
     (line,) = ax.plot([], [], lw=2)
 
-
     def init():
         cart.set_xy((-cart_width / 2, -cart_height / 2))
         line.set_data([], [])
         return cart, line
-
 
     # 애니메이션을 위해 프레임 수 조절
     fps = 60
@@ -735,7 +738,6 @@ if __name__ == "__main__":
             theta_fps_history.append(theta_history[i])
             t -= frame_interval
 
-
     def animate(i):
         if i < len(x_fps_history):
             x = x_fps_history[i]
@@ -750,7 +752,6 @@ if __name__ == "__main__":
         pole_y = pole_length * np.cos(theta)
         line.set_data([x, pole_x], [0, -pole_y])
         return cart, line
-
 
     ani = animation.FuncAnimation(
         fig,
