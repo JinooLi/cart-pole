@@ -94,32 +94,17 @@ class CartPole:
         Returns:
             np.ndarray[[float], [float], [float], [float]]: f의 output (column vector)
         """
-        f = np.array(
-            [
-                [state.v],
-                [
-                    (
-                        self.m_pole
-                        * np.sin(state.theta)
-                        * (self.L * state.theta_dot**2 + self.g * np.cos(state.theta))
-                    )
-                    / (self.m_cart + self.m_pole * np.sin(state.theta) ** 2)
-                ],
-                [state.theta_dot],
-                [
-                    (
-                        -self.m_pole
-                        * self.L
-                        * state.theta_dot**2
-                        * np.sin(state.theta)
-                        * np.cos(state.theta)
-                        - (self.m_cart + self.m_pole) * self.g * np.sin(state.theta)
-                        - self.pole_friction * state.theta_dot
-                    )
-                    / (self.L * (self.m_cart + self.m_pole * np.sin(state.theta) ** 2))
-                ],
-            ],
-            dtype=np.float64,
+        f = dif.f_x(
+            x=state.x,
+            v=self.state.v,
+            angle=self.state.theta,
+            omega=self.state.theta_dot,
+            l=self.L,
+            m=self.m_pole,
+            M=self.m_cart,
+            g=self.g,
+            fric_theta=self.pole_friction,
+            fric_x=0,
         )
         return f
 
@@ -129,28 +114,23 @@ class CartPole:
         Returns:
             np.ndarray[[float], [float], [float], [float]]: g의 output (column vector)
         """
-        g = np.array(
-            [
-                [0],
-                [1 / (self.m_cart + self.m_pole * np.sin(state.theta) ** 2)],
-                [0],
-                [1 / (self.L * (self.m_cart + self.m_pole * np.sin(state.theta) ** 2))],
-            ],
-            dtype=np.float64,
+        g = dif.g_x(
+            x=state.x,
+            v=self.state.v,
+            angle=self.state.theta,
+            omega=self.state.theta_dot,
+            l=self.L,
+            m=self.m_pole,
+            M=self.m_cart,
+            g=self.g,
+            fric_theta=self.pole_friction,
+            fric_x=0,
         )
         return g
 
     def step(self, F: float) -> State:
         """
         Update the system state for one time step using the applied force F on the cart. Using Runge-Kutta 4th order method.
-
-        Equations of motion:
-          - For the cart:
-              ẍ = [F + m_p * sin(theta) * (L * thetȧ² + g * cos(theta))] / [m_cart + m_p * sin²(theta)]
-          - For the pole (with damping):
-              θ̈ = [-F*cos(theta) - m_p*L*thetȧ²*sin(theta)*cos(theta)
-                    - (m_cart + m_p)*g*sin(theta) - pole_friction*thetȧ]
-                    / [L*(m_cart + m_p*sin²(theta))]
 
         Args:
             F (float): Force applied to the cart
@@ -710,7 +690,7 @@ class Controller:
 
 if __name__ == "__main__":
     # Simulation parameters
-    dt = 0.0001  # Simulation time step (seconds)
+    dt = 0.01  # Simulation time step (seconds)
     ctrl_dt = 0.1  # Controller time step (seconds)
     T = 20.0  # Total simulation time (seconds)
     num_steps = int(T / dt)  # Number of simulation steps

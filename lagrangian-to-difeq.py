@@ -79,12 +79,23 @@ solution = sp.solve([x_eq, theta_eq], [x_ddot, theta_ddot])
 sol_x_ddot = solution[x_ddot]
 sol_theta_ddot = solution[theta_ddot]
 
+# f=0 일때의 sol_x_ddot
+sol_x_ddot_no_f = sol_x_ddot.subs(f, 0).simplify()
+sol_theta_ddot_no_f = sol_theta_ddot.subs(f, 0).simplify()
+
+f_x = sp.Matrix([[x_dot], [sol_x_ddot_no_f],[theta_dot], [sol_theta_ddot_no_f]])
+g_x = sp.Matrix([[0], [sol_x_ddot - sol_x_ddot_no_f], [0], [sol_theta_ddot - sol_theta_ddot_no_f]])/f
+f_x = sp.simplify(f_x)
+g_x = sp.simplify(g_x)
+
 # t에 대한 함수인 x, x_dot, theta, theta_dot을 각각 pos, v, angle, omega 변수로 치환
 pos, v = sp.symbols("pos v", real=True)
 angle, omega = sp.symbols("angle omega", real=True)
 
 sol_x_ddot = sol_x_ddot.subs({x: pos, x_dot: v, theta: angle, theta_dot: omega})
 sol_theta_ddot = sol_theta_ddot.subs({x: pos, x_dot: v, theta: angle, theta_dot: omega})
+f_x = f_x.subs({x: pos, x_dot: v, theta: angle, theta_dot: omega})
+g_x = g_x.subs({x: pos, x_dot: v, theta: angle, theta_dot: omega})
 
 sol_x_ddot = sp.simplify(sol_x_ddot)
 sol_theta_ddot = sp.simplify(sol_theta_ddot)
@@ -102,12 +113,20 @@ with open(file_name, "w", encoding="utf-8") as file:
     file.write("# cartpole의 theta_ddot과 x_ddot 함수 생성\n")
 
     file.write("import math\n")
+    file.write("import numpy as np\n")
+    file.write("from sympy import ImmutableDenseMatrix\n")
 
     file.write("def x_ddot(v, angle, omega, l, m, M, g, fric_theta, fric_x, f):\n")
     file.write(f"    return {sp.pycode(sol_x_ddot)}\n\n")
 
     file.write("def theta_ddot(v, angle, omega, l, m, M, g, fric_theta, fric_x, f):\n")
-    file.write(f"    return {sp.pycode(sol_theta_ddot)}\n")
+    file.write(f"    return {sp.pycode(sol_theta_ddot)}\n\n")
+
+    file.write("def f_x(x, v, angle, omega, l, m, M, g, fric_theta, fric_x):\n")
+    file.write(f"    return np.array({sp.pycode(f_x)})\n\n")
+
+    file.write("def g_x(x, v, angle, omega, l, m, M, g, fric_theta, fric_x):\n")
+    file.write(f"    return np.array({sp.pycode(g_x)})\n")
 
 
 # 이 파일이 있는 주소를 알아낸다.
