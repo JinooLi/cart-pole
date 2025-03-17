@@ -142,7 +142,7 @@ class CartPole:
 
     def step(self, F: float) -> State:
         """
-        Update the system state for one time step using the applied force F on the cart.
+        Update the system state for one time step using the applied force F on the cart. Using Runge-Kutta 4th order method.
 
         Equations of motion:
           - For the cart:
@@ -157,40 +157,144 @@ class CartPole:
         Returns:
             State: Updated state of the cart-pole system
         """
-        # Calculate cart acceleration
-        x_ddot = dif.x_ddot(
-            v=self.state.v,
-            angle=self.state.theta,
-            omega=self.state.theta_dot,
-            l=self.L,
-            m=self.m_pole,
-            M=self.m_cart,
-            g=self.g,
-            fric_theta=self.pole_friction,
-            fric_x=0,
-            f=F,
-        )
-
-        # Calculate pole angular acceleration with damping
-        theta_ddot = dif.theta_ddot(
-            v=self.state.v,
-            angle=self.state.theta,
-            omega=self.state.theta_dot,
-            l=self.L,
-            m=self.m_pole,
-            M=self.m_cart,
-            g=self.g,
-            fric_theta=self.pole_friction,
-            fric_x=0,
-            f=F,
-        )
         # Update cart state
-        self.state.v += x_ddot * self.dt  # 가속도 -> 속도
-        self.state.x += self.state.v * self.dt  # 속도 -> 위치
 
-        # Update pole state
-        self.state.theta_dot += theta_ddot * self.dt  # 각가속도 -> 각속도
-        self.state.theta += self.state.theta_dot * self.dt  # 각속도 -> 각도
+        # Runge-Kutta 4th order method
+
+        # get k1
+        x_ddot_k1 = dif.x_ddot(
+            v=self.state.v,
+            angle=self.state.theta,
+            omega=self.state.theta_dot,
+            l=self.L,
+            m=self.m_pole,
+            M=self.m_cart,
+            g=self.g,
+            fric_theta=self.pole_friction,
+            fric_x=0,
+            f=F,
+        )
+        theta_ddot_k1 = dif.theta_ddot(
+            v=self.state.v,
+            angle=self.state.theta,
+            omega=self.state.theta_dot,
+            l=self.L,
+            m=self.m_pole,
+            M=self.m_cart,
+            g=self.g,
+            fric_theta=self.pole_friction,
+            fric_x=0,
+            f=F,
+        )
+        x_dot_k1 = self.state.v + theta_ddot_k1 * self.dt
+        theta_dot_k1 = self.state.theta_dot + theta_ddot_k1 * self.dt
+
+        # get k2
+        x_ddot_k2 = dif.x_ddot(
+            v=self.state.v + x_ddot_k1 * self.dt / 2,
+            angle=self.state.theta + theta_dot_k1 * self.dt / 2,
+            omega=self.state.theta_dot + theta_ddot_k1 * self.dt / 2,
+            l=self.L,
+            m=self.m_pole,
+            M=self.m_cart,
+            g=self.g,
+            fric_theta=self.pole_friction,
+            fric_x=0,
+            f=F,
+        )
+        theta_ddot_k2 = dif.theta_ddot(
+            v=self.state.v + x_ddot_k1 * self.dt / 2,
+            angle=self.state.theta + theta_dot_k1 * self.dt / 2,
+            omega=self.state.theta_dot + theta_ddot_k1 * self.dt / 2,
+            l=self.L,
+            m=self.m_pole,
+            M=self.m_cart,
+            g=self.g,
+            fric_theta=self.pole_friction,
+            fric_x=0,
+            f=F,
+        )
+
+        x_dot_k2 = self.state.v + theta_ddot_k2 * self.dt / 2
+        theta_dot_k2 = self.state.theta_dot + theta_ddot_k2 * self.dt / 2
+
+        # get k3
+        x_ddot_k3 = dif.x_ddot(
+            v=self.state.v + x_ddot_k2 * self.dt / 2,
+            angle=self.state.theta + theta_dot_k2 * self.dt / 2,
+            omega=self.state.theta_dot + theta_ddot_k2 * self.dt / 2,
+            l=self.L,
+            m=self.m_pole,
+            M=self.m_cart,
+            g=self.g,
+            fric_theta=self.pole_friction,
+            fric_x=0,
+            f=F,
+        )
+
+        theta_ddot_k3 = dif.theta_ddot(
+            v=self.state.v + x_ddot_k2 * self.dt / 2,
+            angle=self.state.theta + theta_dot_k2 * self.dt / 2,
+            omega=self.state.theta_dot + theta_ddot_k2 * self.dt / 2,
+            l=self.L,
+            m=self.m_pole,
+            M=self.m_cart,
+            g=self.g,
+            fric_theta=self.pole_friction,
+            fric_x=0,
+            f=F,
+        )
+
+        x_dot_k3 = self.state.v + theta_ddot_k3 * self.dt / 2
+        theta_dot_k3 = self.state.theta_dot + theta_ddot_k3 * self.dt / 2
+
+        # get k4
+        x_ddot_k4 = dif.x_ddot(
+            v=self.state.v + x_ddot_k3 * self.dt,
+            angle=self.state.theta + theta_dot_k3 * self.dt,
+            omega=self.state.theta_dot + theta_ddot_k3 * self.dt,
+            l=self.L,
+            m=self.m_pole,
+            M=self.m_cart,
+            g=self.g,
+            fric_theta=self.pole_friction,
+            fric_x=0,
+            f=F,
+        )
+
+        theta_ddot_k4 = dif.theta_ddot(
+            v=self.state.v + x_ddot_k3 * self.dt,
+            angle=self.state.theta + theta_dot_k3 * self.dt,
+            omega=self.state.theta_dot + theta_ddot_k3 * self.dt,
+            l=self.L,
+            m=self.m_pole,
+            M=self.m_cart,
+            g=self.g,
+            fric_theta=self.pole_friction,
+            fric_x=0,
+            f=F,
+        )
+
+        x_dot_k4 = self.state.v + theta_ddot_k4 * self.dt
+        theta_dot_k4 = self.state.theta_dot + theta_ddot_k4 * self.dt
+
+        # Update cart state
+        self.state.x += (
+            (x_dot_k1 + 2 * x_dot_k2 + 2 * x_dot_k3 + x_dot_k4) * self.dt / 6
+        )
+        self.state.v += (
+            (x_ddot_k1 + 2 * x_ddot_k2 + 2 * x_ddot_k3 + x_ddot_k4) * self.dt / 6
+        )
+        self.state.theta += (
+            (theta_dot_k1 + 2 * theta_dot_k2 + 2 * theta_dot_k3 + theta_dot_k4)
+            * self.dt
+            / 6
+        )
+        self.state.theta_dot += (
+            (theta_ddot_k1 + 2 * theta_ddot_k2 + 2 * theta_ddot_k3 + theta_ddot_k4)
+            * self.dt
+            / 6
+        )
 
         return self.state
 
