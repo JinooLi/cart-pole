@@ -83,8 +83,18 @@ sol_theta_ddot = solution[theta_ddot]
 sol_x_ddot_no_f = sol_x_ddot.subs(f, 0).simplify()
 sol_theta_ddot_no_f = sol_theta_ddot.subs(f, 0).simplify()
 
-f_x = sp.Matrix([[x_dot], [sol_x_ddot_no_f],[theta_dot], [sol_theta_ddot_no_f]])
-g_x = sp.Matrix([[0], [sol_x_ddot - sol_x_ddot_no_f], [0], [sol_theta_ddot - sol_theta_ddot_no_f]])/f
+f_x = sp.Matrix([[x_dot], [sol_x_ddot_no_f], [theta_dot], [sol_theta_ddot_no_f]])
+g_x = (
+    sp.Matrix(
+        [
+            [0],
+            [sol_x_ddot - sol_x_ddot_no_f],
+            [0],
+            [sol_theta_ddot - sol_theta_ddot_no_f],
+        ]
+    )
+    / f
+)
 f_x = sp.simplify(f_x)
 g_x = sp.simplify(g_x)
 
