@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
+import os
+import time
+import traceback
+
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 from cvxopt import matrix, solvers
-import time
 from scipy.linalg import solve_continuous_are
-import os
 
 # 이 파일이 있는 주소를 알아낸다.
 path = os.path.abspath(__file__)
@@ -368,7 +370,7 @@ class RCBF:
 
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.v_max = 1.8  # v 안전영역 최대값
+        self.v_max = 1.2  # v 안전영역 최대값
         self.v_min = -self.v_max  # v 안전영역 최소값
 
     def set_v_bound(self, v_max: float):
@@ -597,7 +599,7 @@ class Controller:
         self.lam = 1  # swingup control
         self.u_a = 1  # swingup control의 크기
         self.linearizable_threshold = (
-            10  # CLF의 V값이 이 값보다 작으면 linearizable control을 사용한다.
+            1  # CLF의 V값이 이 값보다 작으면 linearizable control을 사용한다.
         )
 
     def check_ctrl_dt(self, t: float) -> bool:
@@ -692,7 +694,7 @@ if __name__ == "__main__":
     # Simulation parameters
     dt = 0.01  # Simulation time step (seconds)
     ctrl_dt = 0.1  # Controller time step (seconds)
-    T = 20.0  # Total simulation time (seconds)
+    T = 30  # Total simulation time (seconds)
     num_steps = int(T / dt)  # Number of simulation steps
 
     # Initialize the system
@@ -725,8 +727,6 @@ if __name__ == "__main__":
     f_command_history = []
 
     maxtime = 0
-    maxV = 0
-    minV = 0
     eout = 0
     eout_time = 0
     # Run the simulation
@@ -739,13 +739,12 @@ if __name__ == "__main__":
             end = time.time()
             interval = end - start
             maxtime = max(maxtime, interval)  # 계산하는 데 걸린 시간의 최댓값 check
-        except:
+        except Exception as e:
             f_command_history.pop()
-            print("QP problem is not feasible")
+            print(f"Error occurs: {e}")
+            traceback.print_exc()
             print("Simulation terminated")
             break
-        maxV = max(maxV, state.v)  # 속도의 최댓값 check
-        minV = min(minV, state.v)  # 속도의 최솟값 check
         if abs(state.v) > controller.clbf.rcbf.v_max:  # 속도가 제한을 넘어가면 표기
             eout = f
             eout_time = t
@@ -757,10 +756,11 @@ if __name__ == "__main__":
         t += dt
 
     print("max time: ", maxtime)
-    print("max V: ", maxV)
-    print("min V: ", minV)
+    print("max V: ", max(v_history))
+    print("min V: ", min(v_history))
     print("eout: ", eout)
     print("eout time: ", eout_time)
+    print("max angle: ", max(theta_history))
 
     # Plotting the results
     plt.figure(figsize=(12, 8))
