@@ -7,18 +7,11 @@ import traceback
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
+import sympy as sp
 from cvxopt import matrix, solvers
 from scipy.linalg import solve_continuous_are
 
-# 이 파일이 있는 주소를 알아낸다.
-path = os.path.abspath(__file__)
-# 디렉토리 주소만 가져온다.
-dir_path = os.path.dirname(path)
-
-os.system(f"python3 {dir_path}/lagrangian-to-difeq.py")
-
-import __difeq__ as dif
-
+import custom_sympy as csp
 
 class CartPole:
     class State:
@@ -62,7 +55,8 @@ class CartPole:
         g=9.81,
         m_cart=1.0,
         m_pole=1.0,
-        pole_friction=1,
+        pole_friction=0,
+        cart_friction=0,
         f_max=10,
     ):
         """
@@ -79,6 +73,7 @@ class CartPole:
             m_cart          : Mass of the cart (kg)
             m_pole          : Mass of the pole (kg)
             pole_friction   : Damping coefficient for the pole's rotation
+            cart_friction   : Damping coefficient for the cart's movement
             f_max           : Maximum force that can be applied to the cart
         """
         self.state = self.State(x, v, theta, theta_dot)
@@ -88,7 +83,97 @@ class CartPole:
         self.m_cart = m_cart
         self.m_pole = m_pole
         self.pole_friction = pole_friction
+        self.cart_friction = cart_friction
         self.f_max = f_max
+
+        # 라그랑지안 방정식을 풀어서 운동방정식을 구하는 코드
+        print("Calculating the equations of motion...")
+        # 시간 정의
+        t = sp.symbols("t", real=True)
+
+        # state 변수 정의
+        x = sp.Function("x")(t)
+        theta = sp.Function("theta")(t)
+        state = csp.make_state_vector([(x, 1), (theta, 1)], t)
+        x_dot = state[1]
+        theta_dot = state[3]
+        x_ddot = x_dot.diff(t)
+        theta_ddot = theta_dot.diff(t)
+
+        # 차량에 대한 외력 정의
+        f = sp.symbols("f", real=True)
+
+        # 각 질량체의 x,y 좌표 정의
+        cart_pos_x = x
+        # cart_pos_y = 0
+        pendulum_pos_x = x + self.L * sp.sin(theta)
+        pendulum_pos_y = -self.L * sp.cos(theta)
+
+        # 각 질량체의 속도의 제곱
+        cart_vel_sqare = cart_pos_x.diff(t) ** 2
+        pendulum_vel_sqare = pendulum_pos_x.diff(t) ** 2 + pendulum_pos_y.diff(t) ** 2
+
+        # 시스템의 총 위치에너지와 운동에너지
+        V = self.m_pole * self.g * pendulum_pos_y  # 위치에너지
+        T = (
+            1 / 2 * self.m_cart * cart_vel_sqare
+            + 1 / 2 * self.m_pole * pendulum_vel_sqare
+        )  # 운동에너지
+
+        V = sp.simplify(V)
+        T = sp.simplify(T)
+
+        # 라그랑지안
+        L = T - V
+
+        if pole_friction != 0 or cart_friction != 0:
+            print("Friction included.")
+            # 마찰력 함수 정의
+            friction_x = sp.Function("friction")(x_dot)
+            friction_theta = sp.Function("friction")(theta_dot)
+            friction_x = sp.sign(x_dot) * self.cart_friction
+            friction_theta = sp.sign(theta_dot) * self.pole_friction
+
+            # 각 좌표계에 대한 라그랑주 방정식. 마찰력과 외력을 포함한다.
+            x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), -friction_x + f)
+            theta_eq = sp.Eq(L.diff(theta_dot).diff(t) - L.diff(theta), -friction_theta)
+        else:
+            print("Friction not included.")
+            # 마찰력을 제외한 각 좌표계에 대한 라그랑주 방정식
+            x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), f)
+            theta_eq = sp.Eq(L.diff(theta_dot).diff(t) - L.diff(theta), 0)
+
+        # 운동방정식 풀기
+        solution = sp.solve([x_eq, theta_eq], [x_ddot, theta_ddot])
+
+        sol_x_ddot = solution[x_ddot].simplify()
+        sol_theta_ddot = solution[theta_ddot].simplify()
+
+        # f(x), g(x) 구하기
+        state_dot = state.diff(t).subs(
+            [(x_ddot, sol_x_ddot), (theta_ddot, sol_theta_ddot)]
+        )
+
+        f_x = state_dot.subs(f, 0)
+        g_x = (state_dot - f_x) / f
+
+        f_x = sp.simplify(f_x)
+        g_x = sp.simplify(g_x)
+
+        # lambdify하여 함수로 확장 이때 input은 [x, x_dot, theta, theta_dot] 형태로 넣어야함
+        self.lambdify_f_x = sp.lambdify([[x, x_dot, theta, theta_dot]], f_x, "numpy")
+
+        self.lambdify_g_x = sp.lambdify([[x, x_dot, theta, theta_dot]], g_x, "numpy")
+
+        self.lambdify_x_ddot = sp.lambdify(
+            [[x, x_dot, theta, theta_dot], f], sol_x_ddot, "numpy"
+        )
+
+        self.lambdify_theta_ddot = sp.lambdify(
+            [[x, x_dot, theta, theta_dot], f], sol_theta_ddot, "numpy"
+        )
+
+        print("Equations of motion calculated.")
 
     def f_x(self, state: State) -> np.ndarray:
         """f of \dot{x} = f(x)+g(x)u
@@ -144,121 +229,71 @@ class CartPole:
         # Runge-Kutta 4th order method
 
         # get k1
-        x_ddot_k1 = dif.x_ddot(
-            v=self.state.v,
-            angle=self.state.theta,
-            omega=self.state.theta_dot,
-            l=self.L,
-            m=self.m_pole,
-            M=self.m_cart,
-            g=self.g,
-            fric_theta=self.pole_friction,
-            fric_x=0,
-            f=F,
-        )
-        theta_ddot_k1 = dif.theta_ddot(
-            v=self.state.v,
-            angle=self.state.theta,
-            omega=self.state.theta_dot,
-            l=self.L,
-            m=self.m_pole,
-            M=self.m_cart,
-            g=self.g,
-            fric_theta=self.pole_friction,
-            fric_x=0,
-            f=F,
-        )
-        x_dot_k1 = self.state.v + x_ddot_k1 * self.dt
-        theta_dot_k1 = self.state.theta_dot + theta_ddot_k1 * self.dt
+        cur_state: np.ndarray = self.state.to_np().squeeze()
+
+        x_ddot_k1 = float(self.lambdify_x_ddot(cur_state, F))
+        theta_ddot_k1 = float(self.lambdify_theta_ddot(cur_state, F))
+        x_dot_k1 = float(self.state.v + theta_ddot_k1 * self.dt)
+        theta_dot_k1 = float(self.state.theta_dot + theta_ddot_k1 * self.dt)
 
         # get k2
-        x_ddot_k2 = dif.x_ddot(
-            v=self.state.v + x_ddot_k1 * self.dt / 2,
-            angle=self.state.theta + theta_dot_k1 * self.dt / 2,
-            omega=self.state.theta_dot + theta_ddot_k1 * self.dt / 2,
-            l=self.L,
-            m=self.m_pole,
-            M=self.m_cart,
-            g=self.g,
-            fric_theta=self.pole_friction,
-            fric_x=0,
-            f=F,
+        k2_state = (
+            cur_state
+            + np.array(
+                [
+                    [0],
+                    [x_ddot_k1],
+                    [theta_dot_k1],
+                    [theta_ddot_k1],
+                ],
+                dtype=np.float64,
+            ).squeeze()
+            * self.dt
+            / 2
         )
-        theta_ddot_k2 = dif.theta_ddot(
-            v=self.state.v + x_ddot_k1 * self.dt / 2,
-            angle=self.state.theta + theta_dot_k1 * self.dt / 2,
-            omega=self.state.theta_dot + theta_ddot_k1 * self.dt / 2,
-            l=self.L,
-            m=self.m_pole,
-            M=self.m_cart,
-            g=self.g,
-            fric_theta=self.pole_friction,
-            fric_x=0,
-            f=F,
-        )
-
-        x_dot_k2 = self.state.v + x_ddot_k2 * self.dt / 2
-        theta_dot_k2 = self.state.theta_dot + theta_ddot_k2 * self.dt / 2
+        x_ddot_k2 = float(self.lambdify_x_ddot(k2_state, F))
+        theta_ddot_k2 = float(self.lambdify_theta_ddot(k2_state, F))
+        x_dot_k2 = float(self.state.v + theta_ddot_k2 * self.dt / 2)
+        theta_dot_k2 = float(self.state.theta_dot + theta_ddot_k2 * self.dt / 2)
 
         # get k3
-        x_ddot_k3 = dif.x_ddot(
-            v=self.state.v + x_ddot_k2 * self.dt / 2,
-            angle=self.state.theta + theta_dot_k2 * self.dt / 2,
-            omega=self.state.theta_dot + theta_ddot_k2 * self.dt / 2,
-            l=self.L,
-            m=self.m_pole,
-            M=self.m_cart,
-            g=self.g,
-            fric_theta=self.pole_friction,
-            fric_x=0,
-            f=F,
+        k3_state = (
+            cur_state
+            + np.array(
+                [
+                    [0],
+                    [x_ddot_k2],
+                    [theta_dot_k2],
+                    [theta_ddot_k2],
+                ],
+                dtype=np.float64,
+            ).squeeze()
+            * self.dt
+            / 2
         )
-
-        theta_ddot_k3 = dif.theta_ddot(
-            v=self.state.v + x_ddot_k2 * self.dt / 2,
-            angle=self.state.theta + theta_dot_k2 * self.dt / 2,
-            omega=self.state.theta_dot + theta_ddot_k2 * self.dt / 2,
-            l=self.L,
-            m=self.m_pole,
-            M=self.m_cart,
-            g=self.g,
-            fric_theta=self.pole_friction,
-            fric_x=0,
-            f=F,
-        )
-
-        x_dot_k3 = self.state.v + x_ddot_k3 * self.dt / 2
-        theta_dot_k3 = self.state.theta_dot + theta_ddot_k3 * self.dt / 2
+        x_ddot_k3 = float(self.lambdify_x_ddot(k3_state, F))
+        theta_ddot_k3 = float(self.lambdify_theta_ddot(k3_state, F))
+        x_dot_k3 = float(self.state.v + theta_ddot_k3 * self.dt / 2)
+        theta_dot_k3 = float(self.state.theta_dot + theta_ddot_k3 * self.dt / 2)
 
         # get k4
-        x_ddot_k4 = dif.x_ddot(
-            v=self.state.v + x_ddot_k3 * self.dt,
-            angle=self.state.theta + theta_dot_k3 * self.dt,
-            omega=self.state.theta_dot + theta_ddot_k3 * self.dt,
-            l=self.L,
-            m=self.m_pole,
-            M=self.m_cart,
-            g=self.g,
-            fric_theta=self.pole_friction,
-            fric_x=0,
-            f=F,
+        k4_state = (
+            cur_state
+            + np.array(
+                [
+                    [0],
+                    [x_ddot_k3],
+                    [theta_dot_k3],
+                    [theta_ddot_k3],
+                ],
+                dtype=np.float64,
+            ).squeeze()
+            * self.dt
         )
-
-        theta_ddot_k4 = dif.theta_ddot(
-            v=self.state.v + x_ddot_k3 * self.dt,
-            angle=self.state.theta + theta_dot_k3 * self.dt,
-            omega=self.state.theta_dot + theta_ddot_k3 * self.dt,
-            l=self.L,
-            m=self.m_pole,
-            M=self.m_cart,
-            g=self.g,
-            fric_theta=self.pole_friction,
-            fric_x=0,
-            f=F,
-        )
-
-        x_dot_k4 = self.state.v + x_ddot_k4 * self.dt
-        theta_dot_k4 = self.state.theta_dot + theta_ddot_k4 * self.dt
+        x_ddot_k4 = float(self.lambdify_x_ddot(k4_state, F))
+        theta_ddot_k4 = float(self.lambdify_theta_ddot(k4_state, F))
+        x_dot_k4 = float(self.state.v + theta_ddot_k4 * self.dt)
+        theta_dot_k4 = float(self.state.theta_dot + theta_ddot_k4 * self.dt)
 
         # Update cart state
         self.state.x += (
@@ -373,21 +408,21 @@ class RCBF:
         self.v_max = 1.2  # v 안전영역 최대값
         self.v_min = -self.v_max  # v 안전영역 최소값
 
-    def set_v_bound(self, v_max: float):
+    def set_x_bound(self, v_max: float):
         self.v_max = v_max
         self.v_min = -v_max
 
     def h_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수 h.
 
-        h(x) = -(v-v_max)(v-v_min)로 정의함.
+        h(x) = -(x-x_max)(x-x_min)로 정의함.
         """
         return -(state.v - self.v_max) * (state.v - self.v_min)
 
     def dh_dx(self, state: CartPole.State) -> np.ndarray:
         """h를 x로 미분한 함수. row vector로 반환
 
-        dh/dx(x) = -(v-v_max) - (v-v_min)로 정의함.
+        dh/dx(x) = -(x-x_max) - (x-x_min)로 정의함.
 
         Args:
             state (CartPole.State): 현재 상태
@@ -693,6 +728,7 @@ class Controller:
 if __name__ == "__main__":
     # Simulation parameters
     dt = 0.001  # Simulation time step (seconds)
+    dt = 0.001  # Simulation time step (seconds)
     ctrl_dt = 0.1  # Controller time step (seconds)
     T = 30  # Total simulation time (seconds)
     num_steps = int(T / dt)  # Number of simulation steps
@@ -701,14 +737,15 @@ if __name__ == "__main__":
     cp = CartPole(
         x=0.0,
         v=0.0,
-        theta=0.0,
+        theta=0.3,
         theta_dot=0.0,
         dt=dt,
         L=1.0,
         g=9.81,
         m_cart=1.0,
         m_pole=0.1,
-        pole_friction=0.01,
+        pole_friction=0.0,
+        cart_friction=0.0,
         f_max=15,
     )
 
@@ -735,7 +772,7 @@ if __name__ == "__main__":
         state: CartPole.State = cp.step(f)
         try:
             start = time.time()
-            f = controller.switching_ctrl(state, t)
+            f = 0 #controller.switching_ctrl(state, t)
             end = time.time()
             interval = end - start
             maxtime = max(maxtime, interval)  # 계산하는 데 걸린 시간의 최댓값 check
