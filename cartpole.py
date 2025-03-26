@@ -13,6 +13,7 @@ from scipy.linalg import solve_continuous_are
 
 import custom_sympy as csp
 
+
 class CartPole:
     class State:
         def __init__(self, *args):
@@ -215,6 +216,34 @@ class CartPole:
         )
         return g
 
+    def x_ddot_np(self, state: np.ndarray, F: float) -> float:
+        """xddot을 구하는 함수
+
+        Args:
+            state (State): 현재 state
+            F (float): cart에 가하는 힘
+
+        Returns:
+            float: 다음 step의 x_ddot
+        """
+        state: np.ndarray = state.squeeze()
+        x_ddot = self.lambdify_x_ddot(state, F)
+        return x_ddot
+
+    def theta_ddot_np(self, state: np.ndarray, F: float) -> float:
+        """thetaddot을 구하는 함수
+
+        Args:
+            state (State): 현재 state
+            F (float): cart에 가하는 힘
+
+        Returns:
+            float: 다음 step의 theta_ddot
+        """
+        state: np.ndarray = state.squeeze()
+        theta_ddot = self.lambdify_theta_ddot(state, F)
+        return theta_ddot
+
     def step(self, F: float) -> State:
         """
         Update the system state for one time step using the applied force F on the cart. Using Runge-Kutta 4th order method.
@@ -229,17 +258,16 @@ class CartPole:
         # Runge-Kutta 4th order method
 
         # get k1
-        cur_state: np.ndarray = self.state.to_np().squeeze()
+        cur_state: np.ndarray = self.state.to_np()
 
-        x_ddot_k1 = float(self.lambdify_x_ddot(cur_state, F))
-        theta_ddot_k1 = float(self.lambdify_theta_ddot(cur_state, F))
-        x_dot_k1 = float(self.state.v + theta_ddot_k1 * self.dt)
-        theta_dot_k1 = float(self.state.theta_dot + theta_ddot_k1 * self.dt)
+        x_ddot_k1 = self.x_ddot_np(cur_state, F)
+        theta_ddot_k1 = self.theta_ddot_np(cur_state, F)
+        x_dot_k1 = self.state.v + theta_ddot_k1 * self.dt
+        theta_dot_k1 = self.state.theta_dot + theta_ddot_k1 * self.dt
 
         # get k2
-        k2_state = (
-            cur_state
-            + np.array(
+        k2_dstate = (
+            np.array(
                 [
                     [0],
                     [x_ddot_k1],
@@ -247,19 +275,19 @@ class CartPole:
                     [theta_ddot_k1],
                 ],
                 dtype=np.float64,
-            ).squeeze()
+            )
             * self.dt
             / 2
         )
-        x_ddot_k2 = float(self.lambdify_x_ddot(k2_state, F))
-        theta_ddot_k2 = float(self.lambdify_theta_ddot(k2_state, F))
-        x_dot_k2 = float(self.state.v + theta_ddot_k2 * self.dt / 2)
-        theta_dot_k2 = float(self.state.theta_dot + theta_ddot_k2 * self.dt / 2)
+        k2_state = cur_state + k2_dstate
+        x_ddot_k2 = self.x_ddot_np(k2_state, F)
+        theta_ddot_k2 = self.theta_ddot_np(k2_state, F)
+        x_dot_k2 = self.state.v + theta_ddot_k2 * self.dt / 2
+        theta_dot_k2 = self.state.theta_dot + theta_ddot_k2 * self.dt / 2
 
         # get k3
-        k3_state = (
-            cur_state
-            + np.array(
+        k3_dstate = (
+            np.array(
                 [
                     [0],
                     [x_ddot_k2],
@@ -267,19 +295,19 @@ class CartPole:
                     [theta_ddot_k2],
                 ],
                 dtype=np.float64,
-            ).squeeze()
+            )
             * self.dt
             / 2
         )
-        x_ddot_k3 = float(self.lambdify_x_ddot(k3_state, F))
-        theta_ddot_k3 = float(self.lambdify_theta_ddot(k3_state, F))
-        x_dot_k3 = float(self.state.v + theta_ddot_k3 * self.dt / 2)
-        theta_dot_k3 = float(self.state.theta_dot + theta_ddot_k3 * self.dt / 2)
+        k3_state = cur_state + k3_dstate
+        x_ddot_k3 = self.x_ddot_np(k3_state, F)
+        theta_ddot_k3 = self.theta_ddot_np(k3_state, F)
+        x_dot_k3 = self.state.v + theta_ddot_k3 * self.dt / 2
+        theta_dot_k3 = self.state.theta_dot + theta_ddot_k3 * self.dt / 2
 
         # get k4
-        k4_state = (
-            cur_state
-            + np.array(
+        k4_dstate = (
+            np.array(
                 [
                     [0],
                     [x_ddot_k3],
@@ -287,13 +315,14 @@ class CartPole:
                     [theta_ddot_k3],
                 ],
                 dtype=np.float64,
-            ).squeeze()
+            )
             * self.dt
         )
-        x_ddot_k4 = float(self.lambdify_x_ddot(k4_state, F))
-        theta_ddot_k4 = float(self.lambdify_theta_ddot(k4_state, F))
-        x_dot_k4 = float(self.state.v + theta_ddot_k4 * self.dt)
-        theta_dot_k4 = float(self.state.theta_dot + theta_ddot_k4 * self.dt)
+        k4_state = cur_state + k4_dstate
+        x_ddot_k4 = self.x_ddot_np(k4_state, F)
+        theta_ddot_k4 = self.theta_ddot_np(k4_state, F)
+        x_dot_k4 = self.state.v + theta_ddot_k4 * self.dt
+        theta_dot_k4 = self.state.theta_dot + theta_ddot_k4 * self.dt
 
         # Update cart state
         self.state.x += (
@@ -772,7 +801,7 @@ if __name__ == "__main__":
         state: CartPole.State = cp.step(f)
         try:
             start = time.time()
-            f = 0 #controller.switching_ctrl(state, t)
+            f = controller.switching_ctrl(state, t)
             end = time.time()
             interval = end - start
             maxtime = max(maxtime, interval)  # 계산하는 데 걸린 시간의 최댓값 check
