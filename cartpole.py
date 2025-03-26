@@ -99,7 +99,7 @@ class CartPole:
         L=1.0,
         g=9.81,
         m_cart=1.0,
-        m_pole=1.0,
+        m_pole=0.1,
         pole_friction=0,
         cart_friction=0,
         f_max=15,
@@ -443,9 +443,8 @@ class RCBF:
 
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.v_max = 1.6  # v 안전영역 최대값
+        self.v_max = 1.2  # v 안전영역 최대값
         self.v_min = -self.v_max  # v 안전영역 최소값
-        self.delta = 0.0  # 안전영역의 폭
 
     def set_x_bound(self, v_max: float):
         self.v_max = v_max
@@ -456,7 +455,7 @@ class RCBF:
 
         h(x) = -(x-x_max)(x-x_min)로 정의함.
         """
-        return -(state.v - (self.v_max + self.delta)) * (state.v - (self.v_min - self.delta))
+        return -(state.v - self.v_max) * (state.v - self.v_min)
 
     def dh_dx(self, state: CartPole.State) -> np.ndarray:
         """h를 x로 미분한 함수. row vector로 반환
@@ -472,7 +471,7 @@ class RCBF:
             [
                 [
                     0,
-                    -(state.v - (self.v_min - self.delta)) - (state.v - (self.v_max + self.delta)),
+                    -(state.v - self.v_min) - (state.v - self.v_max),
                     0,
                     0,
                 ]
@@ -673,7 +672,7 @@ class Controller:
         self.lam = 1  # swingup control
         self.u_a = 1  # swingup control의 크기
         self.linearizable_threshold = (
-            5  # CLF의 V값이 이 값보다 작으면 linearizable control을 사용한다.
+            1  # CLF의 V값이 이 값보다 작으면 linearizable control을 사용한다.
         )
 
     def check_ctrl_dt(self, t: float) -> bool:
