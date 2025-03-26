@@ -98,9 +98,9 @@ class CartPole:
         """
         f = dif.f_x(
             x=state.x,
-            v=self.state.v,
-            angle=self.state.theta,
-            omega=self.state.theta_dot,
+            v=state.v,
+            angle=state.theta,
+            omega=state.theta_dot,
             l=self.L,
             m=self.m_pole,
             M=self.m_cart,
@@ -118,9 +118,9 @@ class CartPole:
         """
         g = dif.g_x(
             x=state.x,
-            v=self.state.v,
-            angle=self.state.theta,
-            omega=self.state.theta_dot,
+            v=state.v,
+            angle=state.theta,
+            omega=state.theta_dot,
             l=self.L,
             m=self.m_pole,
             M=self.m_cart,
@@ -647,16 +647,16 @@ class Controller:
     def swingup_ctrl(self, state: CartPole.State, t: float) -> float:
         if state.theta == 0:
             return 0.3
-        state = self.clbf.clf.adj_state(state)
-        if self.check_ctrl_dt(t):
+        if self.check_ctrl_dt(t):   
+            adj_state = self.clbf.clf.adj_state(state)
             lam = self.lam
             u_a = self.u_a
             E_p = (
-                0.5 * state.theta_dot**2 * self.cp.m_pole * self.cp.L**2
-                + self.cp.m_pole * self.cp.g * self.cp.L * (np.cos(state.theta) - 1)
+                0.5 * adj_state.theta_dot**2 * self.cp.m_pole * self.cp.L**2
+                + self.cp.m_pole * self.cp.g * self.cp.L * (np.cos(adj_state.theta) - 1)
             )
             out = -u_a * (
-                E_p * np.cos(state.theta) * state.theta_dot + lam * state.theta_dot
+                E_p * np.cos(adj_state.theta) * adj_state.theta_dot + lam * adj_state.theta_dot
             )
 
             dh_dx = self.clbf.rcbf.dh_dx(state)
