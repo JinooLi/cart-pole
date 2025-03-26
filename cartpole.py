@@ -205,6 +205,13 @@ class CartPole:
         f_x = sp.simplify(f_x)
         g_x = sp.simplify(g_x)
 
+        # symbolic 변수 저장 : 제어할 때 사용
+        self.sym_state = state
+        self.sym_f_x = f_x
+        self.sym_g_x = g_x
+        self.sym_x_ddot = sol_x_ddot
+        self.sym_theta_ddot = sol_theta_ddot
+
         # lambdify하여 함수로 확장 이때 input은 [x, x_dot, theta, theta_dot] 형태로 넣어야함
         self.lambdify_f_x = sp.lambdify([[x, x_dot, theta, theta_dot]], f_x, "numpy")
 
@@ -416,22 +423,26 @@ class CLF:
         return 2 * state.to_np().T @ self.M
 
 
-class RCBF:
-    """1/h(x) = b(x)로 정의되는 장벽함수를 정의하는 클래스"""
+class CBF:
 
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.v_max = 1.2  # v 안전영역 최대값
-        self.v_min = -self.v_max  # v 안전영역 최소값
+        self.set_v_bound(1.2)
+        self.set_x_bound(2.4)
+        self.make_x_constraint()
 
-    def set_x_bound(self, v_max: float):
+    def set_v_bound(self, v_max: float):
         self.v_max = v_max
         self.v_min = -v_max
+
+    def set_x_bound(self, x_max: float):
+        self.x_max = x_max
+        self.x_min = -x_max
 
     def h_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수 h.
 
-        h(x) = -(x-x_max)(x-x_min)로 정의함.
+        h(x) = -(v-v_max)(v-v_min)로 정의함.
         """
         return -(state.v - self.v_max) * (state.v - self.v_min)
 
@@ -476,19 +487,101 @@ class RCBF:
         """
         return -self.dh_dx(state) / (self.h_x(state) ** 2)
 
+    def make_x_constraint(self):
+        """x의 제약조건을 만드는 함수.
+        u_side * u > other_side - alpha(h_dot)에서
+        u_side, other_side, h_dot을 구하는 함수를 만든다.
+        """
+        state = self.cp.sym_state
+        f_x = self.cp.sym_f_x
+        g_x = self.cp.sym_g_x
+        x = state[0]
+        x_dot = state[1]
+        theta = state[2]
+        theta_dot = state[3]
+
+        # h(x) = -(x-x_max)(x-x_min)
+        h_x = sp.Function("h_x")(state)
+        h_x = -(x - self.x_max) * (x - self.x_min)
+
+        # dh/dx
+        dh_dstate = h_x.diff(state)
+        dh_dstate = dh_dstate.transpose()
+
+        # h_dot_state
+        h_dot_state = dh_dstate @ f_x + dh_dstate @ g_x
+        h_dot_state = csp.make_11matrix_to_scalar(h_dot_state)
+
+        dh_dot_dstate = h_dot_state.diff(state)
+
+        u_side = csp.make_11matrix_to_scalar(-dh_dot_dstate.T @ g_x)
+        other_side = csp.make_11matrix_to_scalar(dh_dot_dstate.T @ f_x)
+
+        self.lambdify_u_side = sp.lambdify(
+            [[x, x_dot, theta, theta_dot]], u_side, "numpy"
+        )
+        self.lambdify_other_side = sp.lambdify(
+            [[x, x_dot, theta, theta_dot]], other_side, "numpy"
+        )
+        self.lambdify_h_dot = sp.lambdify(
+            [[x, x_dot, theta, theta_dot]], h_dot_state, "numpy"
+        )
+
+    def u_side(self, state: CartPole.State) -> float:
+        """카트 위치에 대한 constraint u_side를 구하는 함수
+
+        u_side * u > other_side - alpha(h_dot)에서 u_side를 구한다.
+
+        Args:
+            state (CartPole.State): 현재 상태
+
+        Returns:
+            float: u_side
+        """
+        state: np.ndarray = state.to_np().squeeze()
+        return self.lambdify_u_side(state)
+
+    def other_side(self, state: CartPole.State) -> float:
+        """other_side를 구하는 함수
+
+        u_side * u > other_side - alpha(h_dot)에서 other_side를 구한다.
+
+        Args:
+            state (CartPole.State): 현재 상태
+
+        Returns:
+            float: other_side
+        """
+        state: np.ndarray = state.to_np().squeeze()
+        return self.lambdify_other_side(state)
+
+    def h_dot(self, state: CartPole.State) -> float:
+        """h_dot을 구하는 함수
+
+        u_side * u > other_side - alpha(h_dot)에서 h_dot을 구한다.
+
+        Args:
+            state (CartPole.State): 현재 상태
+
+        Returns:
+            float: h_dot
+        """
+        state: np.ndarray = state.to_np().squeeze()
+        return self.lambdify_h_dot(state)
+
 
 class CLBF:
-    def __init__(self, cp: CartPole, clf: CLF, rcbf: RCBF):
+    def __init__(self, cp: CartPole, clf: CLF, cbf: CBF):
         """CLBF를 정의하는 클래스
 
         Args:
             cp (CartPole): cartpole 객체
             clf (CLF): CLF 객체. control lyapunov function을 받아온다.
-            rcbf (RCBF): RCBF 객체. reciprocal control barrier function을 받아온다.
+            cbf (CBF): CBF 객체. reciprocal control barrier function을 받아온다.
         """
         self.cp = cp
         self.clf = clf
-        self.rcbf = rcbf
+        self.cbf = cbf
         self.p = 10
 
     def alpa1(self, input) -> float:
@@ -501,6 +594,13 @@ class CLBF:
     def alpa2(self, input) -> float:
         """class k 함수 alpha2
         alpa2(x) = coef*x로 정의함.
+        """
+        coef = 1
+        return coef * input
+
+    def alpa3(self, input) -> float:
+        """class k 함수 alpha3
+        alpa3(x) = coef*x로 정의함.
         """
         coef = 1
         return coef * input
@@ -562,7 +662,7 @@ class CLBF:
              [1, 0],
              [-1, 0]]
 
-        위의 두 행은 CLF와 RCBF의 조건을 만족시키기 위한 제약조건이다.
+        위의 두 행은 CLF와 CBF의 조건을 만족시키기 위한 제약조건이다.
         밑의 두 행은 힘의 최대값을 넘지 않도록 하는 제약조건이다.
 
         Args:
@@ -573,12 +673,13 @@ class CLBF:
         dv_dx = self.clf.dV_dx(state)
 
         g = self.cp.g_x(state)
-        db_dx = self.rcbf.db_dx(state)
+        db_dx = self.cbf.db_dx(state)
 
         condition = np.array(
             [
                 [float(dv_dx @ g), -1],
                 [float(db_dx @ g), 0],
+                # [self.cbf.u_side(state), 0],
                 [1, 0],
                 [-1, 0],
             ],
@@ -604,14 +705,15 @@ class CLBF:
             np.ndarray[[float], [float]]: h의 output (column vector)
         """
         v = self.clf.V(state)
-        h = self.rcbf.h_x(state)
+        h = self.cbf.h_x(state)
         f = self.cp.f_x(state)
         dv_dx = self.clf.dV_dx(state)
-        db_dx = self.rcbf.db_dx(state)
+        db_dx = self.cbf.db_dx(state)
         return np.array(
             [
                 [float(-dv_dx @ f - self.alpa1(v))],
                 [float(-db_dx @ f + self.alpa2(h))],
+                # [self.cbf.other_side(state) + self.alpa3(self.cbf.h_dot(state))],
                 [self.cp.f_max],
                 [self.cp.f_max],
             ],
@@ -715,15 +817,31 @@ class Controller:
                 + lam * adj_state.theta_dot
             )
 
-            dh_dx = self.clbf.rcbf.dh_dx(state)
+            dh_dx = self.clbf.cbf.dh_dx(state)
             g_x = self.cp.g_x(state)
             f_x = self.cp.f_x(state)
-            h_x = self.clbf.rcbf.h_x(state)
+            h_x = self.clbf.cbf.h_x(state)
 
             Q = np.array([[1]], dtype=np.float64)
             c = np.array([[-out]], dtype=np.float64)
-            G = np.array([[-float(dh_dx @ g_x)]], dtype=np.float64)
-            h = np.array([[float(dh_dx @ f_x + h_x)]], dtype=np.float64)
+            G = np.array(
+                [
+                    [-float(dh_dx @ g_x)],
+                    [self.clbf.cbf.u_side(state)],
+                    [1],
+                    [-1],
+                ],
+                dtype=np.float64,
+            )
+            h = np.array(
+                [
+                    [float(dh_dx @ f_x + h_x)],
+                    [self.clbf.cbf.other_side(state) + self.clbf.alpa3(self.clbf.cbf.h_dot(state))],
+                    [self.cp.f_max],
+                    [self.cp.f_max],
+                ],
+                dtype=np.float64,
+            )
 
             solution = solvers.qp(
                 matrix(Q),
@@ -764,16 +882,16 @@ if __name__ == "__main__":
         g=9.81,
         m_cart=1.0,
         m_pole=0.1,
-        pole_friction=0.01,
+        pole_friction=0.0,
         cart_friction=0.0,
         f_max=15,
     )
 
     # Initialize the controller
-    rcbf = RCBF(cp)
+    cbf = CBF(cp)
     clf = CLF(cp)
-    clbf = CLBF(cp, clf, rcbf)
-    f = 0.0 # 초기 힘
+    clbf = CLBF(cp, clf, cbf)
+    f = 0.0  # 초기 힘
     controller = Controller(
         first_out=f,
         dt=dt,
@@ -782,7 +900,7 @@ if __name__ == "__main__":
         clbf=clbf,
         lam=1,
         u_a=1,
-        linearizable_threshold=5,
+        linearizable_threshold=1,
     )
 
     # Data storage for simulation results
@@ -793,7 +911,7 @@ if __name__ == "__main__":
     theta_dot_history = []
     f_command_history = []
 
-    # Initialize 
+    # Initialize
     t = 0.0
     maxtime = 0
     eout = 0
@@ -815,7 +933,7 @@ if __name__ == "__main__":
             traceback.print_exc()
             print("Simulation terminated")
             break
-        if abs(cp.state.v) > controller.clbf.rcbf.v_max:  # 속도가 제한을 넘어가면 표기
+        if abs(cp.state.v) > controller.clbf.cbf.v_max:  # 속도가 제한을 넘어가면 표기
             eout = f
             eout_time = t
         time_history.append(t)
