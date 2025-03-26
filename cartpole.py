@@ -45,6 +45,50 @@ class CartPole:
                 dtype=np.float64,
             )
 
+        def __add__(self, other):
+            if isinstance(other, CartPole.State):
+                return CartPole.State(
+                    self.x + other.x,
+                    self.v + other.v,
+                    self.theta + other.theta,
+                    self.theta_dot + other.theta_dot,
+                )
+            else:
+                raise ValueError("Invalid type for addition")
+
+        def __sub__(self, other):
+            if isinstance(other, CartPole.State):
+                return CartPole.State(
+                    self.x - other.x,
+                    self.v - other.v,
+                    self.theta - other.theta,
+                    self.theta_dot - other.theta_dot,
+                )
+            else:
+                raise ValueError("Invalid type for subtraction")
+
+        def __mul__(self, other):
+            if isinstance(other, (float, int)):
+                return CartPole.State(
+                    self.x * other,
+                    self.v * other,
+                    self.theta * other,
+                    self.theta_dot * other,
+                )
+            else:
+                raise ValueError("Invalid type for multiplication")
+
+        def __truediv__(self, other):
+            if isinstance(other, (float, int)):
+                return CartPole.State(
+                    self.x / other,
+                    self.v / other,
+                    self.theta / other,
+                    self.theta_dot / other,
+                )
+            else:
+                raise ValueError("Invalid type for division")
+
     def __init__(
         self,
         x=0.0,
@@ -58,7 +102,7 @@ class CartPole:
         m_pole=1.0,
         pole_friction=0,
         cart_friction=0,
-        f_max=10,
+        f_max=15,
     ):
         """
         Initialize the cart-pole system with masses.
@@ -216,7 +260,7 @@ class CartPole:
         )
         return g
 
-    def x_ddot_np(self, state: np.ndarray, F: float) -> float:
+    def x_ddot(self, state: State, F: float) -> float:
         """xddot을 구하는 함수
 
         Args:
@@ -224,13 +268,13 @@ class CartPole:
             F (float): cart에 가하는 힘
 
         Returns:
-            float: 다음 step의 x_ddot
+            float: x_ddot
         """
-        state: np.ndarray = state.squeeze()
+        state: np.ndarray = state.to_np().squeeze()
         x_ddot = self.lambdify_x_ddot(state, F)
-        return x_ddot
+        return float(x_ddot)
 
-    def theta_ddot_np(self, state: np.ndarray, F: float) -> float:
+    def theta_ddot(self, state: State, F: float) -> float:
         """thetaddot을 구하는 함수
 
         Args:
@@ -238,11 +282,11 @@ class CartPole:
             F (float): cart에 가하는 힘
 
         Returns:
-            float: 다음 step의 theta_ddot
+            float: theta_ddot
         """
-        state: np.ndarray = state.squeeze()
+        state: np.ndarray = state.to_np().squeeze()
         theta_ddot = self.lambdify_theta_ddot(state, F)
-        return theta_ddot
+        return float(theta_ddot)
 
     def step(self, F: float) -> State:
         """
@@ -257,89 +301,54 @@ class CartPole:
 
         # Runge-Kutta 4th order method
 
+        cur_state = self.state
         # get k1
-        cur_state: np.ndarray = self.state.to_np()
-
-        x_ddot_k1 = self.x_ddot_np(cur_state, F)
-        theta_ddot_k1 = self.theta_ddot_np(cur_state, F)
+        x_ddot_k1 = self.x_ddot(cur_state, F)
+        theta_ddot_k1 = self.theta_ddot(cur_state, F)
         x_dot_k1 = self.state.v + x_ddot_k1 * self.dt
         theta_dot_k1 = self.state.theta_dot + theta_ddot_k1 * self.dt
 
         # get k2
-        k2_dstate = (
-            np.array(
-                [
-                    [0],
-                    [x_ddot_k1],
-                    [theta_dot_k1],
-                    [theta_ddot_k1],
-                ],
-                dtype=np.float64,
-            )
-            * self.dt
-            / 2
+        k2_state = (
+            cur_state
+            + self.State(x_dot_k1, x_ddot_k1, theta_dot_k1, theta_ddot_k1) * self.dt / 2
         )
-        k2_state = cur_state + k2_dstate
-        x_ddot_k2 = self.x_ddot_np(k2_state, F)
-        theta_ddot_k2 = self.theta_ddot_np(k2_state, F)
+        x_ddot_k2 = self.x_ddot(k2_state, F)
+        theta_ddot_k2 = self.theta_ddot(k2_state, F)
         x_dot_k2 = self.state.v + x_ddot_k2 * self.dt / 2
         theta_dot_k2 = self.state.theta_dot + theta_ddot_k2 * self.dt / 2
 
         # get k3
-        k3_dstate = (
-            np.array(
-                [
-                    [0],
-                    [x_ddot_k2],
-                    [theta_dot_k2],
-                    [theta_ddot_k2],
-                ],
-                dtype=np.float64,
-            )
-            * self.dt
-            / 2
+        k3_state = (
+            cur_state
+            + self.State(x_dot_k2, x_ddot_k2, theta_dot_k2, theta_ddot_k2) * self.dt / 2
         )
-        k3_state = cur_state + k3_dstate
-        x_ddot_k3 = self.x_ddot_np(k3_state, F)
-        theta_ddot_k3 = self.theta_ddot_np(k3_state, F)
+        x_ddot_k3 = self.x_ddot(k3_state, F)
+        theta_ddot_k3 = self.theta_ddot(k3_state, F)
         x_dot_k3 = self.state.v + x_ddot_k3 * self.dt / 2
         theta_dot_k3 = self.state.theta_dot + theta_ddot_k3 * self.dt / 2
 
         # get k4
-        k4_dstate = (
-            np.array(
-                [
-                    [0],
-                    [x_ddot_k3],
-                    [theta_dot_k3],
-                    [theta_ddot_k3],
-                ],
-                dtype=np.float64,
-            )
-            * self.dt
+        k4_state = (
+            cur_state
+            + self.State(x_dot_k3, x_ddot_k3, theta_dot_k3, theta_ddot_k3) * self.dt
         )
-        k4_state = cur_state + k4_dstate
-        x_ddot_k4 = self.x_ddot_np(k4_state, F)
-        theta_ddot_k4 = self.theta_ddot_np(k4_state, F)
+        x_ddot_k4 = self.x_ddot(k4_state, F)
+        theta_ddot_k4 = self.theta_ddot(k4_state, F)
         x_dot_k4 = self.state.v + x_ddot_k4 * self.dt
         theta_dot_k4 = self.state.theta_dot + theta_ddot_k4 * self.dt
 
         # Update cart state
-        self.state.x += (
-            (x_dot_k1 + 2 * x_dot_k2 + 2 * x_dot_k3 + x_dot_k4) * self.dt / 6
+        def update(k1, k2, k3, k4):
+            return (k1 + 2 * k2 + 2 * k3 + k4) * self.dt / 6
+
+        self.state.x += update(x_dot_k1, x_dot_k2, x_dot_k3, x_dot_k4)
+        self.state.v += update(x_ddot_k1, x_ddot_k2, x_ddot_k3, x_ddot_k4)
+        self.state.theta += update(
+            theta_dot_k1, theta_dot_k2, theta_dot_k3, theta_dot_k4
         )
-        self.state.v += (
-            (x_ddot_k1 + 2 * x_ddot_k2 + 2 * x_ddot_k3 + x_ddot_k4) * self.dt / 6
-        )
-        self.state.theta += (
-            (theta_dot_k1 + 2 * theta_dot_k2 + 2 * theta_dot_k3 + theta_dot_k4)
-            * self.dt
-            / 6
-        )
-        self.state.theta_dot += (
-            (theta_ddot_k1 + 2 * theta_ddot_k2 + 2 * theta_ddot_k3 + theta_ddot_k4)
-            * self.dt
-            / 6
+        self.state.theta_dot += update(
+            theta_ddot_k1, theta_ddot_k2, theta_ddot_k3, theta_ddot_k4
         )
 
         return self.state
@@ -434,8 +443,9 @@ class RCBF:
 
     def __init__(self, cp: CartPole):
         self.cp = cp
-        self.v_max = 1.2  # v 안전영역 최대값
+        self.v_max = 1.6  # v 안전영역 최대값
         self.v_min = -self.v_max  # v 안전영역 최소값
+        self.delta = 0.0  # 안전영역의 폭
 
     def set_x_bound(self, v_max: float):
         self.v_max = v_max
@@ -446,7 +456,7 @@ class RCBF:
 
         h(x) = -(x-x_max)(x-x_min)로 정의함.
         """
-        return -(state.v - self.v_max) * (state.v - self.v_min)
+        return -(state.v - (self.v_max + self.delta)) * (state.v - (self.v_min - self.delta))
 
     def dh_dx(self, state: CartPole.State) -> np.ndarray:
         """h를 x로 미분한 함수. row vector로 반환
@@ -462,7 +472,7 @@ class RCBF:
             [
                 [
                     0,
-                    -(state.v - self.v_min) - (state.v - self.v_max),
+                    -(state.v - (self.v_min - self.delta)) - (state.v - (self.v_max + self.delta)),
                     0,
                     0,
                 ]
@@ -663,7 +673,7 @@ class Controller:
         self.lam = 1  # swingup control
         self.u_a = 1  # swingup control의 크기
         self.linearizable_threshold = (
-            1  # CLF의 V값이 이 값보다 작으면 linearizable control을 사용한다.
+            5  # CLF의 V값이 이 값보다 작으면 linearizable control을 사용한다.
         )
 
     def check_ctrl_dt(self, t: float) -> bool:
@@ -757,7 +767,6 @@ class Controller:
 if __name__ == "__main__":
     # Simulation parameters
     dt = 0.001  # Simulation time step (seconds)
-    dt = 0.001  # Simulation time step (seconds)
     ctrl_dt = 0.1  # Controller time step (seconds)
     T = 30  # Total simulation time (seconds)
     num_steps = int(T / dt)  # Number of simulation steps
@@ -766,7 +775,7 @@ if __name__ == "__main__":
     cp = CartPole(
         x=0.0,
         v=0.0,
-        theta=0.3,
+        theta=0.0,
         theta_dot=0.0,
         dt=dt,
         L=1.0,
@@ -784,6 +793,7 @@ if __name__ == "__main__":
     t = 0.0
     f = 0.0
     controller = Controller(first_out=f, dt=dt, ctrl_dt=ctrl_dt, cp=cp, clbf=clbf)
+    
     # Data storage for simulation results
     time_history = []
     x_history = []
@@ -798,10 +808,10 @@ if __name__ == "__main__":
     # Run the simulation
     for i in range(num_steps):
         f_command_history.append(f)
-        state: CartPole.State = cp.step(f)
+        cp.step(f)
         try:
             start = time.time()
-            f = controller.switching_ctrl(state, t)
+            f = controller.switching_ctrl(cp.state, t)
             end = time.time()
             interval = end - start
             maxtime = max(maxtime, interval)  # 계산하는 데 걸린 시간의 최댓값 check
@@ -811,14 +821,14 @@ if __name__ == "__main__":
             traceback.print_exc()
             print("Simulation terminated")
             break
-        if abs(state.v) > controller.clbf.rcbf.v_max:  # 속도가 제한을 넘어가면 표기
+        if abs(cp.state.v) > controller.clbf.rcbf.v_max:  # 속도가 제한을 넘어가면 표기
             eout = f
             eout_time = t
         time_history.append(t)
-        x_history.append(state.x)
-        v_history.append(state.v)
-        theta_history.append(state.theta)
-        theta_dot_history.append(state.theta_dot)
+        x_history.append(cp.state.x)
+        v_history.append(cp.state.v)
+        theta_history.append(cp.state.theta)
+        theta_dot_history.append(cp.state.theta_dot)
         t += dt
 
     print("max time: ", maxtime)
