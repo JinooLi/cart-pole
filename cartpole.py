@@ -226,18 +226,7 @@ class CartPole:
         Returns:
             np.ndarray[[float], [float], [float], [float]]: f의 output (column vector)
         """
-        f = dif.f_x(
-            x=state.x,
-            v=state.v,
-            angle=state.theta,
-            omega=state.theta_dot,
-            l=self.L,
-            m=self.m_pole,
-            M=self.m_cart,
-            g=self.g,
-            fric_theta=self.pole_friction,
-            fric_x=0,
-        )
+        f = self.lambdify_f_x(state.to_np().squeeze())
         return f
 
     def g_x(self, state: State) -> np.ndarray:
@@ -246,18 +235,7 @@ class CartPole:
         Returns:
             np.ndarray[[float], [float], [float], [float]]: g의 output (column vector)
         """
-        g = dif.g_x(
-            x=state.x,
-            v=state.v,
-            angle=state.theta,
-            omega=state.theta_dot,
-            l=self.L,
-            m=self.m_pole,
-            M=self.m_cart,
-            g=self.g,
-            fric_theta=self.pole_friction,
-            fric_x=0,
-        )
+        g = self.lambdify_g_x(state.to_np().squeeze())
         return g
 
     def x_ddot(self, state: State, F: float) -> float:
@@ -649,6 +627,9 @@ class Controller:
         ctrl_dt: float,
         cp: CartPole,
         clbf: CLBF,
+        lam: float = 1,
+        u_a: float = 1,
+        linearizable_threshold: float = 5,
     ):
         """제어기 정의
 
@@ -658,6 +639,9 @@ class Controller:
             ctrl_dt (float): 제어 주기
             cp (CartPole): Cartpole 객체
             clbf (CLBF): CLBF 객체
+            lam (float, optional): swingup control의 lambda 값. Defaults to 1.
+            u_a (float, optional): swingup control의 크기. Defaults to 1.
+            linearizable_threshold (float, optional): CLF의 V값이 이 값보다 작으면 linearizable control을 사용한다. Defaults to 1.
         """
         self.cp = cp
         self.clbf = clbf
@@ -668,12 +652,10 @@ class Controller:
 
         self.dt = dt
         self.ctrl_dt = ctrl_dt
+        self.lam = lam  # swingup control
+        self.u_a = u_a  # swingup control의 크기
+        self.linearizable_threshold = linearizable_threshold  # CLF의 V값이 이 값보다 작으면 linearizable control을 사용한다.
         self.sum = 0
-        self.lam = 1  # swingup control
-        self.u_a = 1  # swingup control의 크기
-        self.linearizable_threshold = (
-            1  # CLF의 V값이 이 값보다 작으면 linearizable control을 사용한다.
-        )
 
     def check_ctrl_dt(self, t: float) -> bool:
         """현재 시각이 제어 주기의 배수인지 확인하는 함수
@@ -720,7 +702,7 @@ class Controller:
     def swingup_ctrl(self, state: CartPole.State, t: float) -> float:
         if state.theta == 0:
             return 0.3
-        if self.check_ctrl_dt(t):   
+        if self.check_ctrl_dt(t):
             adj_state = self.clbf.clf.adj_state(state)
             lam = self.lam
             u_a = self.u_a
@@ -729,7 +711,8 @@ class Controller:
                 + self.cp.m_pole * self.cp.g * self.cp.L * (np.cos(adj_state.theta) - 1)
             )
             out = -u_a * (
-                E_p * np.cos(adj_state.theta) * adj_state.theta_dot + lam * adj_state.theta_dot
+                E_p * np.cos(adj_state.theta) * adj_state.theta_dot
+                + lam * adj_state.theta_dot
             )
 
             dh_dx = self.clbf.rcbf.dh_dx(state)
@@ -786,13 +769,22 @@ if __name__ == "__main__":
         f_max=15,
     )
 
+    # Initialize the controller
     rcbf = RCBF(cp)
     clf = CLF(cp)
     clbf = CLBF(cp, clf, rcbf)
-    t = 0.0
-    f = 0.0
-    controller = Controller(first_out=f, dt=dt, ctrl_dt=ctrl_dt, cp=cp, clbf=clbf)
-    
+    f = 0.0 # 초기 힘
+    controller = Controller(
+        first_out=f,
+        dt=dt,
+        ctrl_dt=ctrl_dt,
+        cp=cp,
+        clbf=clbf,
+        lam=1,
+        u_a=1,
+        linearizable_threshold=5,
+    )
+
     # Data storage for simulation results
     time_history = []
     x_history = []
@@ -801,9 +793,12 @@ if __name__ == "__main__":
     theta_dot_history = []
     f_command_history = []
 
+    # Initialize 
+    t = 0.0
     maxtime = 0
     eout = 0
     eout_time = 0
+
     # Run the simulation
     for i in range(num_steps):
         f_command_history.append(f)
