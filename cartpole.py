@@ -176,8 +176,8 @@ class CartPole:
             # 마찰력 함수 정의
             friction_x = sp.Function("friction")(x_dot)
             friction_theta = sp.Function("friction")(theta_dot)
-            friction_x = sp.sign(x_dot) * self.cart_friction
-            friction_theta = sp.sign(theta_dot) * self.pole_friction
+            friction_x = -sp.sign(x_dot) * self.cart_friction
+            friction_theta = -sp.sign(theta_dot) * self.pole_friction
 
             # 각 좌표계에 대한 라그랑주 방정식. 마찰력과 외력을 포함한다.
             x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), -friction_x + f)
@@ -764,7 +764,7 @@ if __name__ == "__main__":
         g=9.81,
         m_cart=1.0,
         m_pole=0.1,
-        pole_friction=0.0,
+        pole_friction=0.01,
         cart_friction=0.0,
         f_max=15,
     )
