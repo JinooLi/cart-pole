@@ -168,7 +168,7 @@ class CartPole:
             fric_x=0,
             f=F,
         )
-        x_dot_k1 = self.state.v + theta_ddot_k1 * self.dt
+        x_dot_k1 = self.state.v + x_ddot_k1 * self.dt
         theta_dot_k1 = self.state.theta_dot + theta_ddot_k1 * self.dt
 
         # get k2
@@ -197,7 +197,7 @@ class CartPole:
             f=F,
         )
 
-        x_dot_k2 = self.state.v + theta_ddot_k2 * self.dt / 2
+        x_dot_k2 = self.state.v + x_ddot_k2 * self.dt / 2
         theta_dot_k2 = self.state.theta_dot + theta_ddot_k2 * self.dt / 2
 
         # get k3
@@ -227,7 +227,7 @@ class CartPole:
             f=F,
         )
 
-        x_dot_k3 = self.state.v + theta_ddot_k3 * self.dt / 2
+        x_dot_k3 = self.state.v + x_ddot_k3 * self.dt / 2
         theta_dot_k3 = self.state.theta_dot + theta_ddot_k3 * self.dt / 2
 
         # get k4
@@ -257,7 +257,7 @@ class CartPole:
             f=F,
         )
 
-        x_dot_k4 = self.state.v + theta_ddot_k4 * self.dt
+        x_dot_k4 = self.state.v + x_ddot_k4 * self.dt
         theta_dot_k4 = self.state.theta_dot + theta_ddot_k4 * self.dt
 
         # Update cart state
@@ -692,7 +692,7 @@ class Controller:
 
 if __name__ == "__main__":
     # Simulation parameters
-    dt = 0.01  # Simulation time step (seconds)
+    dt = 0.001  # Simulation time step (seconds)
     ctrl_dt = 0.1  # Controller time step (seconds)
     T = 30  # Total simulation time (seconds)
     num_steps = int(T / dt)  # Number of simulation steps
@@ -701,7 +701,7 @@ if __name__ == "__main__":
     cp = CartPole(
         x=0.0,
         v=0.0,
-        theta=0.00,
+        theta=0.0,
         theta_dot=0.0,
         dt=dt,
         L=1.0,
