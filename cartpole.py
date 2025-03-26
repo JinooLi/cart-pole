@@ -262,7 +262,7 @@ class CartPole:
 
         x_ddot_k1 = self.x_ddot_np(cur_state, F)
         theta_ddot_k1 = self.theta_ddot_np(cur_state, F)
-        x_dot_k1 = self.state.v + theta_ddot_k1 * self.dt
+        x_dot_k1 = self.state.v + x_ddot_k1 * self.dt
         theta_dot_k1 = self.state.theta_dot + theta_ddot_k1 * self.dt
 
         # get k2
@@ -282,7 +282,7 @@ class CartPole:
         k2_state = cur_state + k2_dstate
         x_ddot_k2 = self.x_ddot_np(k2_state, F)
         theta_ddot_k2 = self.theta_ddot_np(k2_state, F)
-        x_dot_k2 = self.state.v + theta_ddot_k2 * self.dt / 2
+        x_dot_k2 = self.state.v + x_ddot_k2 * self.dt / 2
         theta_dot_k2 = self.state.theta_dot + theta_ddot_k2 * self.dt / 2
 
         # get k3
@@ -302,7 +302,7 @@ class CartPole:
         k3_state = cur_state + k3_dstate
         x_ddot_k3 = self.x_ddot_np(k3_state, F)
         theta_ddot_k3 = self.theta_ddot_np(k3_state, F)
-        x_dot_k3 = self.state.v + theta_ddot_k3 * self.dt / 2
+        x_dot_k3 = self.state.v + x_ddot_k3 * self.dt / 2
         theta_dot_k3 = self.state.theta_dot + theta_ddot_k3 * self.dt / 2
 
         # get k4
@@ -321,7 +321,7 @@ class CartPole:
         k4_state = cur_state + k4_dstate
         x_ddot_k4 = self.x_ddot_np(k4_state, F)
         theta_ddot_k4 = self.theta_ddot_np(k4_state, F)
-        x_dot_k4 = self.state.v + theta_ddot_k4 * self.dt
+        x_dot_k4 = self.state.v + x_ddot_k4 * self.dt
         theta_dot_k4 = self.state.theta_dot + theta_ddot_k4 * self.dt
 
         # Update cart state
