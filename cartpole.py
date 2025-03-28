@@ -12,6 +12,7 @@ from cvxopt import matrix, solvers
 from scipy.linalg import solve_continuous_are
 
 import custom_sympy as csp
+import one_dim_qp as odqp
 
 
 class CartPole:
@@ -425,19 +426,29 @@ class CLF:
 
 class CBF:
 
-    def __init__(self, cp: CartPole):
+    def __init__(self, cp: CartPole, v_min, v_max, x_min, x_max, k1, k2):
         self.cp = cp
-        self.set_v_bound(1.2)
-        self.set_x_bound(2.4)
+        self.set_v_bound(v_min, v_max)
+        self.set_x_bound(x_min, x_max, k1, k2)
         self.make_x_constraint()
 
-    def set_v_bound(self, v_max: float):
+    def set_v_bound(self, v_min: float, v_max: float):
         self.v_max = v_max
-        self.v_min = -v_max
+        self.v_min = v_min
 
-    def set_x_bound(self, x_max: float):
+    def set_x_bound(self, x_min: float, x_max: float, k1: float, k2: float):
+        """x의 제약조건을 설정하는 함수
+
+        Args:
+            x_min (float): 카트 위치의 최소값
+            x_max (float): 카트 위치의 최대값
+            k1 (float): 1차 제약조건의 class k 함수의 계수
+            k2 (float): 2차 제약조건의 class k 함수의 계수
+        """
         self.x_max = x_max
-        self.x_min = -x_max
+        self.x_min = x_min
+        self.k1 = k1
+        self.k2 = k2
 
     def h_x(self, state: CartPole.State) -> float:
         """state가 안전한지의 여부를 정의하는 함수 h.
@@ -492,6 +503,8 @@ class CBF:
         u_side * u > other_side - alpha(h_dot)에서
         u_side, other_side, h_dot을 구하는 함수를 만든다.
         """
+        print("making x barrier function")
+
         state = self.cp.sym_state
         f_x = self.cp.sym_f_x
         g_x = self.cp.sym_g_x
@@ -499,23 +512,38 @@ class CBF:
         x_dot = state[1]
         theta = state[2]
         theta_dot = state[3]
+        u = sp.symbols("u", real=True)
 
         # h(x) = -(x-x_max)(x-x_min)
-        h_x = sp.Function("h_x")(state)
         h_x = -(x - self.x_max) * (x - self.x_min)
 
-        # dh/dx
-        dh_dstate = h_x.diff(state)
-        dh_dstate = dh_dstate.transpose()
+        # dh/dstate
+        dh_dstate = h_x.diff(state).T
 
-        # h_dot_state
+        # h_dot(state)
         h_dot_state = dh_dstate @ f_x + dh_dstate @ g_x
         h_dot_state = csp.make_11matrix_to_scalar(h_dot_state)
 
-        dh_dot_dstate = h_dot_state.diff(state)
+        # dh_dot/dstate
+        dh_dot_dstate = h_dot_state.diff(state).T
 
-        u_side = csp.make_11matrix_to_scalar(-dh_dot_dstate.T @ g_x)
-        other_side = csp.make_11matrix_to_scalar(dh_dot_dstate.T @ f_x)
+        # h_ddot(state)
+        h_ddot_state = csp.make_11matrix_to_scalar(
+            dh_dot_dstate @ f_x + dh_dot_dstate @ g_x * u
+        )
+
+        ineq = (
+            h_ddot_state + self.k2 * h_dot_state + self.k2 * self.k1 * h_x >= 0
+        ).simplify()
+
+        ineq = sp.solve(ineq, u)
+
+        u_side = -ineq.lhs.subs(u, 1)
+        other_side = -ineq.rhs
+
+        u_side = sp.simplify(u_side)
+        other_side = sp.simplify(other_side)
+        h_dot_state = sp.simplify(h_dot_state)
 
         self.lambdify_u_side = sp.lambdify(
             [[x, x_dot, theta, theta_dot]], u_side, "numpy"
@@ -523,9 +551,8 @@ class CBF:
         self.lambdify_other_side = sp.lambdify(
             [[x, x_dot, theta, theta_dot]], other_side, "numpy"
         )
-        self.lambdify_h_dot = sp.lambdify(
-            [[x, x_dot, theta, theta_dot]], h_dot_state, "numpy"
-        )
+
+        print("making x barrier function done")
 
     def u_side(self, state: CartPole.State) -> float:
         """카트 위치에 대한 constraint u_side를 구하는 함수
@@ -555,20 +582,6 @@ class CBF:
         state: np.ndarray = state.to_np().squeeze()
         return self.lambdify_other_side(state)
 
-    def h_dot(self, state: CartPole.State) -> float:
-        """h_dot을 구하는 함수
-
-        u_side * u > other_side - alpha(h_dot)에서 h_dot을 구한다.
-
-        Args:
-            state (CartPole.State): 현재 상태
-
-        Returns:
-            float: h_dot
-        """
-        state: np.ndarray = state.to_np().squeeze()
-        return self.lambdify_h_dot(state)
-
 
 class CLBF:
     def __init__(self, cp: CartPole, clf: CLF, cbf: CBF):
@@ -594,13 +607,6 @@ class CLBF:
     def alpa2(self, input) -> float:
         """class k 함수 alpha2
         alpa2(x) = coef*x로 정의함.
-        """
-        coef = 1
-        return coef * input
-
-    def alpa3(self, input) -> float:
-        """class k 함수 alpha3
-        alpa3(x) = coef*x로 정의함.
         """
         coef = 1
         return coef * input
@@ -675,11 +681,13 @@ class CLBF:
         g = self.cp.g_x(state)
         db_dx = self.cbf.db_dx(state)
 
+        x_bound_uside = self.cbf.u_side(state)
+        print("x_bound_uside: ", x_bound_uside)
         condition = np.array(
             [
                 [float(dv_dx @ g), -1],
                 [float(db_dx @ g), 0],
-                # [self.cbf.u_side(state), 0],
+                [x_bound_uside, 0],
                 [1, 0],
                 [-1, 0],
             ],
@@ -709,11 +717,14 @@ class CLBF:
         f = self.cp.f_x(state)
         dv_dx = self.clf.dV_dx(state)
         db_dx = self.cbf.db_dx(state)
+
+        bound_otherside = self.cbf.other_side(state)
+        print("bound_otherside: ", bound_otherside)
         return np.array(
             [
                 [float(-dv_dx @ f - self.alpa1(v))],
                 [float(-db_dx @ f + self.alpa2(h))],
-                # [self.cbf.other_side(state) + self.alpa3(self.cbf.h_dot(state))],
+                [bound_otherside],
                 [self.cp.f_max],
                 [self.cp.f_max],
             ],
@@ -836,7 +847,7 @@ class Controller:
             h = np.array(
                 [
                     [float(dh_dx @ f_x + h_x)],
-                    [self.clbf.cbf.other_side(state) + self.clbf.alpa3(self.clbf.cbf.h_dot(state))],
+                    [self.clbf.cbf.other_side(state)],
                     [self.cp.f_max],
                     [self.cp.f_max],
                 ],
@@ -884,14 +895,24 @@ if __name__ == "__main__":
         m_pole=0.1,
         pole_friction=0.0,
         cart_friction=0.0,
-        f_max=15,
+        f_max=20,
     )
 
-    # Initialize the controller
-    cbf = CBF(cp)
+    # Initialize the CBF
+    cbf = CBF(
+        cp=cp,
+        v_min=-2,
+        v_max=2,
+        x_min=-1.8,
+        x_max=1.8,
+        k1=1,
+        k2=1,
+    )
+
     clf = CLF(cp)
     clbf = CLBF(cp, clf, cbf)
     f = 0.0  # 초기 힘
+    # Initialize the controller
     controller = Controller(
         first_out=f,
         dt=dt,
@@ -899,8 +920,8 @@ if __name__ == "__main__":
         cp=cp,
         clbf=clbf,
         lam=1,
-        u_a=1,
-        linearizable_threshold=1,
+        u_a=0.5, # 속도 제한이 널널하면 0.5로 줄이는 게 좋다. 빡빡하면 1로 한다.
+        linearizable_threshold=4, # 속도 제한이 널널하면 늘리는 게 좋다. 반대로 빡빡하면 줄인다.
     )
 
     # Data storage for simulation results
@@ -946,6 +967,8 @@ if __name__ == "__main__":
     print("max time: ", maxtime)
     print("max V: ", max(v_history))
     print("min V: ", min(v_history))
+    print("max X: ", max(x_history))
+    print("min X: ", min(x_history))
     print("eout: ", eout)
     print("eout time: ", eout_time)
     print("max angle: ", max(theta_history))
