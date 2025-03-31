@@ -3,6 +3,7 @@
 import os
 import time
 import traceback
+import yaml
 
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
@@ -867,9 +868,7 @@ class Controller:
             )
 
             # 1차원 QP문제를 풀기 위해서 직접 만든 함수 사용
-            self.output = odqp.one_qp(out,G,h)
-
-
+            self.output = odqp.one_qp(out, G, h)
 
         return self.output
 
@@ -885,53 +884,73 @@ class Controller:
         return self.output
 
 
+def load_params(file_path: str) -> dict:
+    """YAML 파일에서 전체 상수 구조를 로드하는 함수"""
+    with open(file_path, "r") as file:
+        config = yaml.safe_load(file)
+    return config.get("constants", {})
+
+
 if __name__ == "__main__":
+    # Load params from YAML file
+    params = load_params("sim_config.yaml")
+
     # Simulation parameters
-    dt = 0.001  # Simulation time step (seconds)
-    ctrl_dt = 0.1  # Controller time step (seconds)
-    T = 30  # Total simulation time (seconds)
+    sim_consts = params["simulation_constants"]
+    dt = sim_consts["simulation_step"]  # Simulation time step (seconds)
+    ctrl_dt = sim_consts["control_step"]  # Controller time step (seconds)
+    T = sim_consts["simulation_time"]  # Total simulation time (seconds)
     num_steps = int(T / dt)  # Number of simulation steps
-    initial_force = 0.0  # Initial force applied to the cart
+    initial_force = sim_consts["initial_force"]  # Initial force applied to the cart
 
     # Initialize the system
+    cp_init_consts = params["cartpole_init"]
+    cp_consts = params["cartpole_constants"]
     cp = CartPole(
-        x=0.0,
-        v=0.0,
-        theta=0.0,
-        theta_dot=0.0,
+        x=cp_init_consts["x"],
+        v=cp_init_consts["v"],
+        theta=cp_init_consts["theta"],
+        theta_dot=cp_init_consts["theta_dot"],
         dt=dt,
-        L=1.0,
-        g=9.81,
-        m_cart=1.0,
-        m_pole=0.1,
-        pole_friction=0.0,
-        cart_friction=0.0,
-        f_max=20,
+        L=cp_consts["length_of_pole"],
+        g=cp_consts["g"],
+        m_cart=cp_consts["mass_of_cart"],
+        m_pole=cp_consts["mass_of_pole"],
+        pole_friction=cp_consts["pole_friction"],
+        cart_friction=cp_consts["cart_friction"],
+        f_max=cp_consts["max_force"],
     )
 
     # Initialize the CBF
+    cbf_consts = params["cbf_constants"]["cbf"]
+    hocbf_consts = params["cbf_constants"]["hocbf"]
     cbf = CBF(
         cp=cp,
-        v_min=-1.4,
-        v_max=1.4,
-        x_min=-0.6,
-        x_max=0.6,
-        k1=1,
-        k2=5,
+        v_min=cbf_consts["velocity_min"],
+        v_max=cbf_consts["velocity_max"],
+        x_min=hocbf_consts["position_min"],
+        x_max=hocbf_consts["position_max"],
+        k1=hocbf_consts["k1"],
+        k2=hocbf_consts["k2"],
     )
 
+    # Initialize the controller
+    swing_up_consts = params["swingup_constants"]
     clf = CLF(cp)
     clbf = CLBF(cp, clf, cbf)
-    # Initialize the controller
     controller = Controller(
         first_out=initial_force,
         dt=dt,
         ctrl_dt=ctrl_dt,
         cp=cp,
         clbf=clbf,
-        lam=1,
-        u_a=0.5,  # 속도 제한이 널널하면 0.5로 줄이는 게 좋다. 빡빡하면 1로 한다.
-        linearizable_threshold=4,  # 속도 제한이 널널하면 늘리는 게 좋다. 반대로 빡빡하면 줄인다.
+        lam=swing_up_consts["lambda"],  # lambda 값
+        u_a=swing_up_consts[
+            "u_a"
+        ],  # 속도 제한이 널널하면 0.5로 줄이는 게 좋다. 빡빡하면 1로 한다.
+        linearizable_threshold=swing_up_consts[
+            "linearizable_threshold"
+        ],  # 속도 제한이 널널하면 늘리는 게 좋다. 반대로 빡빡하면 줄인다.
     )
 
     # Data storage for simulation results
