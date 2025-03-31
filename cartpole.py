@@ -916,12 +916,12 @@ if __name__ == "__main__":
     # Initialize the CBF
     cbf = CBF(
         cp=cp,
-        v_min=-2,
-        v_max=2,
-        x_min=-1.8,
-        x_max=1.8,
+        v_min=-1.5,
+        v_max=1.5,
+        x_min=-0.7,
+        x_max=0.7,
         k1=1,
-        k2=1,
+        k2=5,
     )
 
     clf = CLF(cp)
