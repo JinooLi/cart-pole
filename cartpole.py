@@ -847,8 +847,6 @@ class Controller:
             f_x = self.cp.f_x(state)
             h_x = self.clbf.cbf.h_x(state)
 
-            Q = np.array([[1]], dtype=np.float64)
-            c = np.array([[-out]], dtype=np.float64)
             G = np.array(
                 [
                     [-float(dh_dx @ g_x)],
@@ -868,14 +866,10 @@ class Controller:
                 dtype=np.float64,
             )
 
-            solution = solvers.qp(
-                matrix(Q),
-                matrix(c),
-                matrix(G),
-                matrix(h),
-            )
+            # 1차원 QP문제를 풀기 위해서 직접 만든 함수 사용
+            self.output = odqp.one_qp(out,G,h)
 
-            self.output = float(solution["x"][0])
+
 
         return self.output
 
@@ -918,10 +912,10 @@ if __name__ == "__main__":
     # Initialize the CBF
     cbf = CBF(
         cp=cp,
-        v_min=-1.5,
-        v_max=1.5,
-        x_min=-0.7,
-        x_max=0.7,
+        v_min=-1.4,
+        v_max=1.4,
+        x_min=-0.6,
+        x_max=0.6,
         k1=1,
         k2=5,
     )

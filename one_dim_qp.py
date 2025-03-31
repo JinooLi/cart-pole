@@ -31,8 +31,10 @@ def one_qp(desired: float, const_lhs: np.ndarray, const_rhs: np.ndarray) -> floa
     if const_lhs.shape[0] != const_rhs.shape[0]:
         raise ValueError("rhs and lhs Constraints must have the same shape")
 
+    print("==== start ====")
+
     out = desired
-    delta = 1e-6
+    delta = 1e-8
     length = const_lhs.shape[0]
     collide = False
     for i in range(length):
@@ -51,6 +53,9 @@ def one_qp(desired: float, const_lhs: np.ndarray, const_rhs: np.ndarray) -> floa
     for i in range(length):
         if const_lhs[i, 0] * out - delta > const_rhs[i, 0]:
             raise ValueError("No solution")
+    
+    print(f"Optimal: {out}")
+    print("==== done ====")
 
     return out
 
