@@ -557,7 +557,7 @@ class CBF:
     def u_side(self, state: CartPole.State) -> float:
         """카트 위치에 대한 constraint u_side를 구하는 함수
 
-        u_side * u > other_side - alpha(h_dot)에서 u_side를 구한다.
+        u_side * u > other_side에서 u_side를 구한다.
 
         Args:
             state (CartPole.State): 현재 상태
@@ -571,7 +571,7 @@ class CBF:
     def other_side(self, state: CartPole.State) -> float:
         """other_side를 구하는 함수
 
-        u_side * u > other_side - alpha(h_dot)에서 other_side를 구한다.
+        u_side * u > other_side에서 other_side를 구한다.
 
         Args:
             state (CartPole.State): 현재 상태
