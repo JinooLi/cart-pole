@@ -54,6 +54,7 @@ def one_qp(desired: float, const_lhs: np.ndarray, const_rhs: np.ndarray) -> floa
         if const_lhs[i, 0] * out - delta > const_rhs[i, 0]:
             raise ValueError("No solution")
     
+    print(f"desired: {desired}")
     print(f"Optimal: {out}")
     print("==== done ====")
 
