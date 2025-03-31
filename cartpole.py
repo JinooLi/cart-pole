@@ -581,6 +581,18 @@ class CBF:
         """
         state: np.ndarray = state.to_np().squeeze()
         return self.lambdify_other_side(state)
+    
+    def get_pos_constraint_function_value(self, state: CartPole.State, input: float) -> float:
+        """cbf의 제약조건을 만족하는지 보이는 함수
+
+        Args:
+            state (CartPole.State): 현재 상태
+            input (float): 제어 입력
+
+        Returns:
+            float: 제약조건의 값
+        """
+        return -self.u_side(state) * input  + self.other_side(state)
 
 
 class CLBF:
@@ -933,6 +945,7 @@ if __name__ == "__main__":
     theta_history = []
     theta_dot_history = []
     f_command_history = []
+    barrier_history = []
 
     # Initialize
     t = 0.0
@@ -960,6 +973,9 @@ if __name__ == "__main__":
         if abs(cp.state.v) > controller.clbf.cbf.v_max:  # 속도가 제한을 넘어가면 표기
             eout = f
             eout_time = t
+        barrier_history.append(
+            controller.clbf.cbf.get_pos_constraint_function_value(cp.state, f)
+        )  # 제약조건을 만족하는지 확인하기 위해 barrier function을 저장
         time_history.append(t)
         x_history.append(cp.state.x)
         v_history.append(cp.state.v)
@@ -984,10 +1000,12 @@ if __name__ == "__main__":
     plt.plot(time_history, x_history, label="Cart Position (x)")
     plt.plot(time_history, v_history, label="Cart Velocity (v)")
     plt.plot(time_history, f_command_history, "--", label="Force Command (F)")
+    plt.plot(time_history, barrier_history, label="Barrier Function")
     plt.xlabel("Time (s)")
     plt.ylabel("Position / Velocity / Force")
     plt.legend()
     plt.title("Cart State")
+    plt.grid(True)
 
     # Pole state: angle and angular velocity
     plt.subplot(2, 1, 2)
@@ -999,6 +1017,8 @@ if __name__ == "__main__":
     plt.title("Pole State")
 
     plt.tight_layout()
+    plt.grid(True)
+    plt.show()
     plt.savefig("cartpole.png")
     print("Simulation done. Results saved in 'cartpole.png'")
 
