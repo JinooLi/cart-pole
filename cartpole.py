@@ -867,7 +867,9 @@ class Controller:
 
     def switching_ctrl(self, state: CartPole.State, t: float) -> float:
         if self.check_ctrl_dt(t):
-            if self.clbf.clf.V(state) < self.linearizable_threshold:
+            x0state = state.copy()
+            x0state.x = 0
+            if self.clbf.clf.V(x0state) < self.linearizable_threshold:
                 self.output = self.clbf_ctrl(state, t)
             else:
                 self.output = self.swingup_ctrl(state, t)
