@@ -98,6 +98,7 @@ def show_state_vars():
     for key, value in vars.items():
         sp.pprint(sp.Eq(key, value))
 
+
 def make_11matrix_to_scalar(matrix: sp.Matrix) -> sp.Symbol:
     """1x1 matrix를 scalar로 변환한다.
 

@@ -581,8 +581,10 @@ class CBF:
         """
         state: np.ndarray = state.to_np().squeeze()
         return self.lambdify_other_side(state)
-    
-    def get_pos_constraint_function_value(self, state: CartPole.State, input: float) -> float:
+
+    def get_pos_constraint_function_value(
+        self, state: CartPole.State, input: float
+    ) -> float:
         """cbf의 제약조건을 만족하는지 보이는 함수
 
         Args:
@@ -592,7 +594,7 @@ class CBF:
         Returns:
             float: 제약조건의 값
         """
-        return -self.u_side(state) * input  + self.other_side(state)
+        return -self.u_side(state) * input + self.other_side(state)
 
 
 class CLBF:
@@ -934,8 +936,8 @@ if __name__ == "__main__":
         cp=cp,
         clbf=clbf,
         lam=1,
-        u_a=0.5, # 속도 제한이 널널하면 0.5로 줄이는 게 좋다. 빡빡하면 1로 한다.
-        linearizable_threshold=4, # 속도 제한이 널널하면 늘리는 게 좋다. 반대로 빡빡하면 줄인다.
+        u_a=0.5,  # 속도 제한이 널널하면 0.5로 줄이는 게 좋다. 빡빡하면 1로 한다.
+        linearizable_threshold=4,  # 속도 제한이 널널하면 늘리는 게 좋다. 반대로 빡빡하면 줄인다.
     )
 
     # Data storage for simulation results

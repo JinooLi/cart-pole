@@ -36,10 +36,10 @@ def one_qp(desired: float, const_lhs: np.ndarray, const_rhs: np.ndarray) -> floa
     length = const_lhs.shape[0]
     collide = False
     for i in range(length):
-        comp = const_rhs[i, 0]/const_lhs[i, 0]
+        comp = const_rhs[i, 0] / const_lhs[i, 0]
         if const_lhs[i, 0] < 0:
             print(f"{comp} <= u")
-        else :
+        else:
             print(f"u <= {comp}")
         if const_lhs[i, 0] * out > const_rhs[i, 0]:
             collide = True
