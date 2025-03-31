@@ -883,6 +883,7 @@ if __name__ == "__main__":
     ctrl_dt = 0.1  # Controller time step (seconds)
     T = 30  # Total simulation time (seconds)
     num_steps = int(T / dt)  # Number of simulation steps
+    initial_force = 0.0  # Initial force applied to the cart
 
     # Initialize the system
     cp = CartPole(
@@ -913,10 +914,9 @@ if __name__ == "__main__":
 
     clf = CLF(cp)
     clbf = CLBF(cp, clf, cbf)
-    f = 0.0  # 초기 힘
     # Initialize the controller
     controller = Controller(
-        first_out=f,
+        first_out=initial_force,
         dt=dt,
         ctrl_dt=ctrl_dt,
         cp=cp,
@@ -936,6 +936,7 @@ if __name__ == "__main__":
 
     # Initialize
     t = 0.0
+    f = initial_force
     maxtime = 0
     eout = 0
     eout_time = 0
