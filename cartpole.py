@@ -871,6 +871,12 @@ class Controller:
             self.output = odqp.one_qp(out, G, h)
 
         return self.output
+    
+    def set_clf_swingup_ctrl(self, state: CartPole.State, t: float) -> float:
+        pass
+    
+    def clf_swingup_ctrl(self, state: CartPole.State, t: float) -> float:
+        pass
 
     def switching_ctrl(self, state: CartPole.State, t: float) -> float:
         if self.check_ctrl_dt(t):
@@ -977,7 +983,7 @@ if __name__ == "__main__":
         cp.step(f)
         try:
             start = time.time()
-            f = controller.switching_ctrl(cp.state, t)
+            f = controller.swingup_ctrl(cp.state, t)
             end = time.time()
             interval = end - start
             maxtime = max(maxtime, interval)  # 계산하는 데 걸린 시간의 최댓값 check
