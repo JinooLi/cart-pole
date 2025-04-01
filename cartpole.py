@@ -3,12 +3,12 @@
 import os
 import time
 import traceback
-import yaml
 
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sp
+import yaml
 from cvxopt import matrix, solvers
 from scipy.linalg import solve_continuous_are
 
@@ -892,8 +892,10 @@ def load_params(file_path: str) -> dict:
 
 
 if __name__ == "__main__":
+    config_file_name = "sim_config.yaml"
+
     # Load params from YAML file
-    params = load_params("sim_config.yaml")
+    params = load_params(f"configs/{config_file_name}")
 
     # Simulation parameters
     sim_consts = params["simulation_constants"]

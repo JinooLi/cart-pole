@@ -1,0 +1,36 @@
+constants:
+  simulation_constants:
+    simulation_step: 0.001 # Simulation time step (seconds)
+    control_step: 0.1 # Controller time step (seconds)
+    simulation_time: 30 # Total simulation time (seconds)
+    initial_force: 0.0  # Initial force applied to the cart
+
+  cartpole_init:
+    x: 0.0 # Initial position of the cart (m)
+    v: 0.0 # Initial velocity of the cart (m/s)
+    theta: 0.0 # Initial angle of the pole (radians)
+    theta_dot: 0.0 # Initial angular velocity of the pole (radians/s)
+
+  cartpole_constants:
+    g: 9.81 # Gravitational acceleration (m/s^2)
+    mass_of_pole: 0.1 # Mass of the pole (kg)
+    mass_of_cart: 1.0 # Mass of the cart (kg)
+    length_of_pole: 1.0 # Length of the pole (m)
+    pole_friction: 0.0 # Friction coefficient of the pole
+    cart_friction: 0.0 # Friction coefficient of the cart 
+    max_force: 20.0 # Maximum force applied to the cart (N)
+
+  cbf_constants:
+    cbf:
+      velocity_min: -1.4 # Minimum velocity of the cart
+      velocity_max: 1.4 # Maximum velocity of the cart
+    hocbf:
+      position_min: -0.6 # Minimum position of the cart
+      position_max: 0.6 # Maximum position of the cart
+      k1: 1.0 # Gain(class k function k1*x) for the first CBF
+      k2: 5.0 # Gain(class k function k2*x) for the second CBF
+
+  swingup_constants:
+    lambda: 1  # lambda 값
+    u_a: 0.5 # 속도 제한이 널널하면 0.5로 줄이는 게 좋다. 빡빡하면 1로 한다.
+    linearizable_threshold: 4.0 # 속도 제한이 널널하면 늘리는 게 좋다. 반대로 빡빡하면 줄인다.
