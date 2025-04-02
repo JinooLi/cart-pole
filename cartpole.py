@@ -784,6 +784,7 @@ class Controller:
         self.u_a = u_a  # swingup control의 크기
         self.linearizable_threshold = linearizable_threshold  # CLF의 V값이 이 값보다 작으면 linearizable control을 사용한다.
         self.sum = 0
+        self.set_clf_swingup_ctrl(1)
 
     def check_ctrl_dt(self, t: float) -> bool:
         """현재 시각이 제어 주기의 배수인지 확인하는 함수
@@ -871,12 +872,117 @@ class Controller:
             self.output = odqp.one_qp(out, G, h)
 
         return self.output
-    
-    def set_clf_swingup_ctrl(self, state: CartPole.State, t: float) -> float:
-        pass
-    
+
+    def set_clf_swingup_ctrl(self, alpha) -> float:
+
+        print("setting_clf_swingup_ctrl")
+
+        # 새로 정의하는 변수
+        u = sp.symbols("u", real=True)
+
+        # 상수와 변수를 가져온다.
+        state = self.cp.sym_state
+        m = self.cp.m_pole
+        l = self.cp.L
+        g = self.cp.g
+        x = state[0]
+        x_dot = state[1]
+        theta = state[2]
+        theta_dot = state[3]
+        f_x = self.cp.sym_f_x
+        g_x = self.cp.sym_g_x
+
+        E_p = 1 / 2 * m * l * theta_dot**2 + m * g * l * (sp.cos(theta) - 1)
+        V = 1 / 2 * (E_p**2 + m * l * self.lam * x_dot**2)
+        V = sp.simplify(V)
+        dV_dstate = V.diff(state).T
+        dif_eq = (
+            csp.make_11matrix_to_scalar(dV_dstate @ f_x + dV_dstate @ g_x * u)
+            <= -alpha * V
+        )
+        dif_eq = sp.simplify(dif_eq)
+        dif_eq = sp.solve(dif_eq, u)
+        lhs = dif_eq.lhs / u
+        rhs = dif_eq.rhs
+        lhs = sp.simplify(lhs)
+        rhs = sp.simplify(rhs)
+        lhs = csp.make_state_comfy_to_see(lhs)
+        rhs = csp.make_state_comfy_to_see(rhs)
+
+        x, x_dot, theta, theta_dot = sp.symbols("x xdot theta thetadot", real=True)
+
+        pos, velo, angle, omega = sp.symbols("pos velo angle omega", real=True)
+
+        # x, x_dot, theta, theta_dot을 각각 pos, velo, angle, omega로 치환
+        dict_state = {x: pos, x_dot: velo, theta: angle, theta_dot: omega}
+        lhs = lhs.subs(dict_state)
+        rhs = rhs.subs(dict_state)
+
+        # lambdify하여 함수로 확장
+        self.lambdify_lhs = sp.lambdify([[pos, velo, angle, omega]], lhs, "numpy")
+        self.lambdify_rhs = sp.lambdify([[pos, velo, angle, omega]], rhs, "numpy")
+
+        print("setting_clf_swingup_ctrl done")
+
+    def lhs_swingup_ctrl(self, state: CartPole.State) -> float:
+        """swingup control의 lhs를 구하는 함수
+        Args:
+            state (CartPole.State): 현재 상태
+        Returns:
+            float: lhs
+        """
+        state: np.ndarray = state.to_np().squeeze()
+        return self.lambdify_lhs(state)
+
+    def rhs_swingup_ctrl(self, state: CartPole.State) -> float:
+        """swingup control의 rhs를 구하는 함수
+        Args:
+            state (CartPole.State): 현재 상태
+        Returns:
+            float: rhs
+        """
+        state: np.ndarray = state.to_np().squeeze()
+        return self.lambdify_rhs(state)
+
     def clf_swingup_ctrl(self, state: CartPole.State, t: float) -> float:
-        pass
+        """swingup control을 구하는 함수
+
+        Args:
+            state (CartPole.State): 현재 상태
+            t (float): 현재 시간
+
+        Returns:
+            float: swingup control
+        """
+        if self.check_ctrl_dt(t):
+            adj_state = self.clbf.clf.adj_state(state)
+            lhs = self.lhs_swingup_ctrl(state)
+            rhs = self.rhs_swingup_ctrl(state)
+
+            lhs = np.array(
+                [
+                    [lhs],
+                ],
+                dtype=np.float64,
+            )
+            rhs = np.array(
+                [
+                    [rhs],
+                ],
+                dtype=np.float64,
+            )
+
+            # 1차원 QP문제를 풀기 위해서 직접 만든 함수 사용
+
+            self.output = 10* odqp.one_qp(0, lhs, rhs)
+
+
+            # if self.output > 0:
+            #     self.output = 5
+            # else:
+            #     self.output = -5
+
+        return self.output
 
     def switching_ctrl(self, state: CartPole.State, t: float) -> float:
         if self.check_ctrl_dt(t):
@@ -983,7 +1089,7 @@ if __name__ == "__main__":
         cp.step(f)
         try:
             start = time.time()
-            f = controller.swingup_ctrl(cp.state, t)
+            f = controller.clf_swingup_ctrl(cp.state, t)
             end = time.time()
             interval = end - start
             maxtime = max(maxtime, interval)  # 계산하는 데 걸린 시간의 최댓값 check

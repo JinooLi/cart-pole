@@ -1,14 +1,14 @@
 constants:
   simulation_constants:
     simulation_step: 0.001 # Simulation time step (seconds)
-    control_step: 0.1 # Controller time step (seconds)
+    control_step: 0.01 # Controller time step (seconds)
     simulation_time: 30 # Total simulation time (seconds)
     initial_force: 0.0  # Initial force applied to the cart
 
   cartpole_init:
     x: 0.0 # Initial position of the cart (m)
     v: 0.0 # Initial velocity of the cart (m/s)
-    theta: 0.0 # Initial angle of the pole (radians)
+    theta: 0.1 # Initial angle of the pole (radians)
     theta_dot: 0.0 # Initial angular velocity of the pole (radians/s)
 
   cartpole_constants:
