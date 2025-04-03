@@ -1193,9 +1193,9 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.grid(True)
-    plt.show()
     plt.savefig("cartpole.png")
     print("Simulation done. Results saved in 'cartpole.png'")
+    plt.show()
 
     # --- Animation ---
     fig, ax = plt.subplots()
