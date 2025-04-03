@@ -956,8 +956,8 @@ class Controller:
         """
         if self.check_ctrl_dt(t):
             adj_state = self.clbf.clf.adj_state(state)
-            lhs = self.lhs_swingup_ctrl(state)
-            rhs = self.rhs_swingup_ctrl(state)
+            lhs = self.lhs_swingup_ctrl(adj_state)
+            rhs = self.rhs_swingup_ctrl(adj_state)
 
             lhs = np.array(
                 [
@@ -974,13 +974,59 @@ class Controller:
 
             # 1차원 QP문제를 풀기 위해서 직접 만든 함수 사용
 
-            self.output = 10* odqp.one_qp(0, lhs, rhs)
+            self.output = odqp.one_qp(0, lhs, rhs)
 
+            lhs = np.array(
+                [
+                    [1],
+                    [-1],
+                ],
+                dtype=np.float64,
+            )
+            rhs = np.array(
+                [
+                    [self.cp.f_max],
+                    [self.cp.f_max],
+                ],
+                dtype=np.float64,
+            )
 
-            # if self.output > 0:
-            #     self.output = 5
-            # else:
-            #     self.output = -5
+            self.output = odqp.one_qp(self.output, lhs, rhs)
+
+            dh_dx = self.clbf.cbf.dh_dx(state)
+            g_x = self.cp.g_x(state)
+            f_x = self.cp.f_x(state)
+            h_x = self.clbf.cbf.h_x(state)
+
+            lhs = np.array(
+                [
+                    [-float(dh_dx @ g_x)],
+                ],
+                dtype=np.float64,
+            )
+            rhs = np.array(
+                [
+                    [float(dh_dx @ f_x + h_x)],
+                ],
+                dtype=np.float64,
+            )
+
+            self.output = odqp.one_qp(self.output, lhs, rhs)
+
+            lhs = np.array(
+                [
+                    [self.clbf.cbf.u_side(state)],
+                ],
+                dtype=np.float64,
+            )
+            rhs = np.array(
+                [
+                    [self.clbf.cbf.other_side(state)],
+                ],
+                dtype=np.float64,
+            )
+
+            self.output = 0.5 * odqp.one_qp(self.output, lhs, rhs)
 
         return self.output
 

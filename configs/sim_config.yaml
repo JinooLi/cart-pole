@@ -1,7 +1,7 @@
 constants:
   simulation_constants:
     simulation_step: 0.001 # Simulation time step (seconds)
-    control_step: 0.01 # Controller time step (seconds)
+    control_step: 0.1 # Controller time step (seconds)
     simulation_time: 30 # Total simulation time (seconds)
     initial_force: 0.0  # Initial force applied to the cart
 
