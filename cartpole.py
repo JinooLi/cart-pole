@@ -587,7 +587,7 @@ class CBF:
         h_x = -(x - self.x_max) * (x - self.x_min)
 
         # 캐싱
-        func_list = tuple([f_x, g_x, h_x])
+        func_list = tuple([f_x, g_x, h_x, self.k1, self.k2])
         const_file_name = "cache/x_constr_functions.txt"
         if os.path.exists(const_file_name):
             with open(const_file_name, "r") as f:
@@ -639,12 +639,18 @@ class CBF:
 
         ineq = sp.solve(ineq, u)
 
-        u_side = -ineq.lhs.subs(u, 1)
-        other_side = -ineq.rhs
+        # 부등식을 "<="의 형태로 변환
+        if ineq.rel_op == "<=":
+            u_side = ineq.lhs.subs(u, 1)
+            other_side = ineq.rhs
+        elif ineq.rel_op == ">=":
+            u_side = -ineq.lhs.subs(u, 1)
+            other_side = -ineq.rhs
+        else:
+            raise ValueError("Invalid inequality relation")
 
         u_side = sp.simplify(u_side)
         other_side = sp.simplify(other_side)
-        h_dot_state = sp.simplify(h_dot_state)
 
         # pickle로 저장
         with open("cache/x_barrier_u_side.pkl", "wb") as f:
