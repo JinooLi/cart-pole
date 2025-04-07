@@ -4,6 +4,7 @@ import os
 import time
 import traceback
 
+import cloudpickle as pickle
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
@@ -133,8 +134,6 @@ class CartPole:
         self.cart_friction = cart_friction
         self.f_max = f_max
 
-        # 라그랑지안 방정식을 풀어서 운동방정식을 구하는 코드
-        print("Calculating the equations of motion...")
         # 시간 정의
         t = sp.symbols("t", real=True)
 
@@ -148,7 +147,67 @@ class CartPole:
         theta_ddot = theta_dot.diff(t)
 
         # 차량에 대한 외력 정의
-        f = sp.symbols("f", real=True)
+        force = sp.symbols("force", real=True)
+
+        # 식 캐싱. 이전에 사용한 사전의 상수값과 같으면 계산하지 않음
+        const_list = tuple(
+            [
+                self.L,
+                self.g,
+                self.m_cart,
+                self.m_pole,
+                self.pole_friction,
+                self.cart_friction,
+                self.f_max,
+            ]
+        )
+        const_file_name = "cache/cartpole_const.txt"
+        if os.path.exists(const_file_name):
+            with open(const_file_name, "r") as f:
+                old_const_list = f.read()
+            if str(const_list) == old_const_list:
+                print("Constants are same. No need to recalculate.")
+                with open("cache/f_expr.pkl", "rb") as f:
+                    expr_loaded_f = pickle.load(f)
+                with open("cache/g_expr.pkl", "rb") as f:
+                    expr_loaded_g = pickle.load(f)
+                with open("cache/x_ddot_expr.pkl", "rb") as f:
+                    expr_loaded_x_ddot = pickle.load(f)
+                with open("cache/theta_ddot_expr.pkl", "rb") as f:
+                    expr_loaded_theta_ddot = pickle.load(f)
+
+                self.sym_state = state
+                self.sym_f_x = expr_loaded_f
+                self.sym_g_x = expr_loaded_g
+                self.sym_x_ddot = expr_loaded_x_ddot
+                self.sym_theta_ddot = expr_loaded_theta_ddot
+
+                self.lambdify_f_x = sp.lambdify(
+                    [[x, x_dot, theta, theta_dot]], expr_loaded_f, "numpy"
+                )
+                self.lambdify_g_x = sp.lambdify(
+                    [[x, x_dot, theta, theta_dot]], expr_loaded_g, "numpy"
+                )
+                self.lambdify_x_ddot = sp.lambdify(
+                    [[x, x_dot, theta, theta_dot], force], expr_loaded_x_ddot, "numpy"
+                )
+                self.lambdify_theta_ddot = sp.lambdify(
+                    [[x, x_dot, theta, theta_dot], force],
+                    expr_loaded_theta_ddot,
+                    "numpy",
+                )
+                print("Loaded cached expressions for system dynamics.")
+                return
+            else:
+                print("Constants are different. Recalculating.")
+        else:
+            print("Constants value file not found. Creating new one.")
+
+        with open(const_file_name, "w") as f:
+            f.write(str(const_list))
+
+        # 라그랑지안 방정식을 풀어서 운동방정식을 구하는 코드
+        print("Calculating the equations of motion...")
 
         # 각 질량체의 x,y 좌표 정의
         cart_pos_x = x
@@ -182,12 +241,12 @@ class CartPole:
             friction_theta = -sp.sign(theta_dot) * self.pole_friction
 
             # 각 좌표계에 대한 라그랑주 방정식. 마찰력과 외력을 포함한다.
-            x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), -friction_x + f)
+            x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), -friction_x + force)
             theta_eq = sp.Eq(L.diff(theta_dot).diff(t) - L.diff(theta), -friction_theta)
         else:
             print("Friction not included.")
             # 마찰력을 제외한 각 좌표계에 대한 라그랑주 방정식
-            x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), f)
+            x_eq = sp.Eq(L.diff(x_dot).diff(t) - L.diff(x), force)
             theta_eq = sp.Eq(L.diff(theta_dot).diff(t) - L.diff(theta), 0)
 
         # 운동방정식 풀기
@@ -201,8 +260,8 @@ class CartPole:
             [(x_ddot, sol_x_ddot), (theta_ddot, sol_theta_ddot)]
         )
 
-        f_x = state_dot.subs(f, 0)
-        g_x = (state_dot - f_x) / f
+        f_x = state_dot.subs(force, 0)
+        g_x = (state_dot - f_x) / force
 
         f_x = sp.simplify(f_x)
         g_x = sp.simplify(g_x)
@@ -214,17 +273,27 @@ class CartPole:
         self.sym_x_ddot = sol_x_ddot
         self.sym_theta_ddot = sol_theta_ddot
 
+        # pickle로 저장
+        with open("cache/f_expr.pkl", "wb") as f:
+            pickle.dump(f_x, f)
+        with open("cache/g_expr.pkl", "wb") as f:
+            pickle.dump(g_x, f)
+        with open("cache/x_ddot_expr.pkl", "wb") as f:
+            pickle.dump(sol_x_ddot, f)
+        with open("cache/theta_ddot_expr.pkl", "wb") as f:
+            pickle.dump(sol_theta_ddot, f)
+
         # lambdify하여 함수로 확장 이때 input은 [x, x_dot, theta, theta_dot] 형태로 넣어야함
         self.lambdify_f_x = sp.lambdify([[x, x_dot, theta, theta_dot]], f_x, "numpy")
 
         self.lambdify_g_x = sp.lambdify([[x, x_dot, theta, theta_dot]], g_x, "numpy")
 
         self.lambdify_x_ddot = sp.lambdify(
-            [[x, x_dot, theta, theta_dot], f], sol_x_ddot, "numpy"
+            [[x, x_dot, theta, theta_dot], force], sol_x_ddot, "numpy"
         )
 
         self.lambdify_theta_ddot = sp.lambdify(
-            [[x, x_dot, theta, theta_dot], f], sol_theta_ddot, "numpy"
+            [[x, x_dot, theta, theta_dot], force], sol_theta_ddot, "numpy"
         )
 
         print("Equations of motion calculated.")
@@ -504,7 +573,6 @@ class CBF:
         u_side * u > other_side - alpha(h_dot)에서
         u_side, other_side, h_dot을 구하는 함수를 만든다.
         """
-        print("making x barrier function")
 
         state = self.cp.sym_state
         f_x = self.cp.sym_f_x
@@ -517,6 +585,38 @@ class CBF:
 
         # h(x) = -(x-x_max)(x-x_min)
         h_x = -(x - self.x_max) * (x - self.x_min)
+
+        # 캐싱
+        func_list = tuple([f_x, g_x, h_x])
+        const_file_name = "cache/x_constr_functions.txt"
+        if os.path.exists(const_file_name):
+            with open(const_file_name, "r") as f:
+                old_func_list = f.read()
+            if str(func_list) == old_func_list:
+                print("Constants are same. No need to recalculate.")
+                with open("cache/x_barrier_u_side.pkl", "rb") as f:
+                    u_side = pickle.load(f)
+                with open("cache/x_barrier_other_side.pkl", "rb") as f:
+                    other_side = pickle.load(f)
+                
+                self.lambdify_u_side = sp.lambdify(
+                    [[x, x_dot, theta, theta_dot]], u_side, "numpy"
+                )
+                self.lambdify_other_side = sp.lambdify(
+                    [[x, x_dot, theta, theta_dot]], other_side, "numpy"
+                )
+
+                print("Loaded cached expressions for barrier function.")
+                return
+            else:
+                print("Constants are different. Recalculating.")
+        else:
+            print("Constants value file not found. Creating new one.")
+
+        with open(const_file_name, "w") as f:
+            f.write(str(func_list))
+
+        print("making x barrier function")
 
         # dh/dstate
         dh_dstate = h_x.diff(state).T
@@ -545,6 +645,12 @@ class CBF:
         u_side = sp.simplify(u_side)
         other_side = sp.simplify(other_side)
         h_dot_state = sp.simplify(h_dot_state)
+
+        # pickle로 저장
+        with open("cache/x_barrier_u_side.pkl", "wb") as f:
+            pickle.dump(u_side, f)
+        with open("cache/x_barrier_other_side.pkl", "wb") as f:
+            pickle.dump(other_side, f)
 
         self.lambdify_u_side = sp.lambdify(
             [[x, x_dot, theta, theta_dot]], u_side, "numpy"
@@ -1035,8 +1141,8 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.grid(True)
-    plt.show()
     plt.savefig("cartpole.png")
+    plt.show()
     print("Simulation done. Results saved in 'cartpole.png'")
 
     # --- Animation ---
