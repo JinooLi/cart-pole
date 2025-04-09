@@ -33,4 +33,4 @@ constants:
   swingup_constants:
     lambda: 1  # lambda 값
     u_a: 0.5 # 속도 제한이 널널하면 0.5로 줄이는 게 좋다. 빡빡하면 1로 한다.
-    linearizable_threshold: 4.0 # 속도 제한이 널널하면 늘리는 게 좋다. 반대로 빡빡하면 줄인다.
+    linearizable_threshold: 2.0 # 속도 제한이 널널하면 늘리는 게 좋다. 반대로 빡빡하면 줄인다.
