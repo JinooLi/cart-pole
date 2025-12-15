@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 
 import os
 import time
@@ -21,7 +21,7 @@ class CartPole:
     class State:
         def __init__(self, *args):
             if len(args) == 1:
-                state: np.array = args[0]
+                state: np.ndarray = args[0]
                 self.x = state[0][0]
                 self.v = state[1][0]
                 self.theta = state[2][0]
@@ -477,8 +477,8 @@ class CLF:
             float: V의 output
         """
 
-        state: CartPole.State = self.adj_state(state)
-        return float(state.to_np().T @ self.M @ state.to_np())
+        adstate: CartPole.State = self.adj_state(state)
+        return float(adstate.to_np().T @ self.M @ adstate.to_np())
 
     def dV_dx(self, state: CartPole.State) -> np.ndarray:
         """Lyapunov function의 시간미분을 정의하는 함수
@@ -490,8 +490,8 @@ class CLF:
         Returns:
             np.ndarray[[float, float, float, float]]: dV_dx의 output (row vector)
         """
-        state: CartPole.State = self.adj_state(state)
-        return 2 * state.to_np().T @ self.M
+        adstate: CartPole.State = self.adj_state(state)
+        return 2 * adstate.to_np().T @ self.M
 
 
 class CBF:
@@ -528,9 +528,9 @@ class CBF:
         return -(state.v - self.v_max) * (state.v - self.v_min)
 
     def dh_dx(self, state: CartPole.State) -> np.ndarray:
-        """h를 x로 미분한 함수. row vector로 반환
+        """h를 v로 미분한 함수. row vector로 반환
 
-        dh/dx(x) = -(x-x_max) - (x-x_min)로 정의함.
+        dh/dx(x) = -(v-v_max) - (v-v_min)로 정의함.
 
         Args:
             state (CartPole.State): 현재 상태
@@ -598,7 +598,7 @@ class CBF:
                     u_side = pickle.load(f)
                 with open("cache/x_barrier_other_side.pkl", "rb") as f:
                     other_side = pickle.load(f)
-                
+
                 self.lambdify_u_side = sp.lambdify(
                     [[x, x_dot, theta, theta_dot]], u_side, "numpy"
                 )
@@ -678,8 +678,8 @@ class CBF:
         Returns:
             float: u_side
         """
-        state: np.ndarray = state.to_np().squeeze()
-        return self.lambdify_u_side(state)
+        adstate: np.ndarray = state.to_np().squeeze()
+        return self.lambdify_u_side(adstate)
 
     def other_side(self, state: CartPole.State) -> float:
         """other_side를 구하는 함수
@@ -692,8 +692,8 @@ class CBF:
         Returns:
             float: other_side
         """
-        state: np.ndarray = state.to_np().squeeze()
-        return self.lambdify_other_side(state)
+        adstate: np.ndarray = state.to_np().squeeze()
+        return self.lambdify_other_side(adstate)
 
     def get_pos_constraint_function_value(
         self, state: CartPole.State, input: float
